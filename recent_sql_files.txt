@@ -1,0 +1,5 @@
+F:/Europ_Schools/Documents_collegues_Varese/ICT/WorkingGroup/PythonDatabaseTool/WorkingArea/ghf.sql
+F:/Europ_Schools/Documents_collegues_Varese/ICT/WorkingGroup/PythonDatabaseTool/WorkingArea/test4d3b1.sql
+F:/Europ_Schools/Documents_collegues_Varese/ICT/WorkingGroup/PythonDatabaseTool/WorkingArea/test3.sql
+F:/Europ_Schools/Documents_collegues_Varese/ICT/WorkingGroup/PythonDatabaseTool/WorkingArea/test43b1g.sql
+F:/Europ_Schools/Documents_collegues_Varese/ICT/WorkingGroup/PythonDatabaseTool/WorkingArea/test4g3.sql
