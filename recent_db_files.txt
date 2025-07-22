@@ -1,3 +1,4 @@
+F:/Europ_Schools/Documents_collegues_Varese/ICT/WorkingGroup/PythonDatabaseTool/WorkingArea/sample_databases/new.db
 F:/Europ_Schools/Documents_collegues_Varese/ICT/WorkingGroup/PythonDatabaseTool/WorkingArea/holiday.db
 F:/Europ_Schools/Documents_collegues_Varese/ICT/WorkingGroup/PythonDatabaseTool/WorkingArea/Holliday.db
 F:/Europ_Schools/Documents_collegues_Varese/ICT/WorkingGroup/PythonDatabaseTool/WorkingArea/Library.db

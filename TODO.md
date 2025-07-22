@@ -8,6 +8,12 @@ Liste des fonctionnalités prévues, bugs à corriger, et idées d’améliorati
 
 - [ ] Permettre l’exécution de suites d’instructions SQL (scripts contenant plusieurs `;`).
 - [ ] Permettre l’exécution **de la sélection active** dans la zone SQL, si une sélection est faite.
+- [ ] Un CTRL Z / CTRL S  ?
+- [ ] Permettre la création d'une base de données dans le répertoire désiré
+- [ ] Affichage des FK et PK dans List Tables
+- [ ] Coloration des commentaires -- et /*    */
+- [ ] Insérer uneligne vide a chaqe sortie dans l'output, pas seulement make pretty table
+
 
 ---
 

@@ -7,7 +7,6 @@ import re
 import global_vars
 from tkinter import Tk
 
-
 SQL_KEYWORDS = {
     "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET",
     "DELETE", "CREATE", "TABLE", "DROP", "ALTER", "ADD", "RENAME",
@@ -15,13 +14,31 @@ SQL_KEYWORDS = {
     "ON", "AS", "AND", "OR", "NOT", "IS", "NULL", "IN", "LIKE", "BETWEEN",
     "ORDER", "BY", "GROUP", "HAVING", "DISTINCT", "LIMIT", "OFFSET",
     "UNION", "ALL", "EXISTS", "CASE", "WHEN", "THEN", "ELSE", "END",
-    "ASC", "DESC", "UNIQUE", "IF"
+    "ASC", "DESC", "UNIQUE", "IF",
+    "PRIMARY", "KEY", "FOREIGN", "REFERENCES", "CHECK", "DEFAULT", "CONSTRAINT",
+    "INTEGER", "TEXT", "REAL", "NUMERIC", "BLOB", "BOOLEAN",
+    "CASCADE", "RESTRICT", "NO", "ACTION", "SET",
+    "VIEW", "TRIGGER", "BEFORE", "AFTER", "INSTEAD", "OF", "BEGIN", "COMMIT", "ROLLBACK", "TRANSACTION"
 }
 
+import re
+
 LINEBREAK_KEYWORDS = {
-    "FROM", "WHERE", "ORDER", "GROUP", "HAVING", "JOIN", "LIMIT", "OFFSET",
-    "UNION", "VALUES"
+    "SELECT", "FROM", "WHERE", "GROUP BY", "HAVING", "ORDER BY", "LIMIT", "OFFSET",
+    "UNION", "VALUES", "INSERT INTO", "UPDATE", "SET", "DELETE FROM",
+    "CREATE TABLE", "ALTER TABLE", "DROP TABLE",
+    "JOIN", "INNER JOIN", "LEFT JOIN", "CROSS JOIN", "NATURAL JOIN", "ON"
 }
+
+def add_linebreaks(sql_code):
+    formatted = sql_code
+    for keyword in sorted(LINEBREAK_KEYWORDS, key=len, reverse=True):  # longest first
+        pattern = rf"\b{re.escape(keyword)}\b"
+        formatted = re.sub(pattern, rf"\n{keyword}", formatted, flags=re.IGNORECASE)
+    # Nettoyage : supprime les \n en double ou les espaces inutiles
+    formatted = re.sub(r"\n\s*", "\n", formatted)
+    return formatted.strip()
+
 
 SQL_KEYWORDS = SQL_KEYWORDS.union(LINEBREAK_KEYWORDS)
 
@@ -119,16 +136,29 @@ def colorize_keywords(text_widget):
                 start = f"{i + 1}.{start_col}"
                 end = f"{i + 1}.{end_col}"
                 text_widget.tag_add("sql_keyword", start, end)
-
     return None
 
 
+##def insert_linebreaks_before_keywords(sql_code: str) -> str:
+##    """
+##    Inserts newlines before key SQL keywords.
+##    """
+##    pattern = r"(?<!\n)\b(" + "|".join(LINEBREAK_KEYWORDS) + r")\b"
+##    return re.sub(pattern, prepend_newline_to_keyword, sql_code, flags=re.IGNORECASE)
+##import re
+
 def insert_linebreaks_before_keywords(sql_code: str) -> str:
     """
-    Inserts newlines before key SQL keywords.
+    Inserts newlines before key SQL keywords (from LINEBREAK_KEYWORDS),
+    in an idempotent way: no duplicate newlines on repeated runs.
     """
-    pattern = r"(?<!\n)\b(" + "|".join(LINEBREAK_KEYWORDS) + r")\b"
-    return re.sub(pattern, prepend_newline_to_keyword, sql_code, flags=re.IGNORECASE)
+    formatted = sql_code
+    for keyword in sorted(LINEBREAK_KEYWORDS, key=len, reverse=True):
+        pattern = rf"\b{re.escape(keyword)}\b"
+        formatted = re.sub(pattern, rf"\n{keyword}", formatted, flags=re.IGNORECASE)
+    # Remove redundant newlines and whitespace
+    formatted = re.sub(r'\n\s*', '\n', formatted)
+    return formatted.strip()
 
 
 def prepend_newline_to_keyword(match: re.Match) -> str:
