@@ -6,22 +6,22 @@ Liste des fonctionnalités prévues, bugs à corriger, et idées d’améliorati
 
 ## 🚀 Chantiers majeurs (post-migration GitHub)
 
-- [ ] Permettre l’exécution de suites d’instructions SQL (scripts contenant plusieurs `;`).
+- [ ] Insérer une ligne vide à chaque sortie dans l'output, pas seulement dans make_pretty_table
+- [ ] Un CTRL Z / CTRL S ?
 - [ ] Permettre l’exécution **de la sélection active** dans la zone SQL, si une sélection est faite.
-- [ ] Un CTRL Z / CTRL S  ?
+- [ ] Permettre l’exécution de suites d’instructions SQL (scripts contenant plusieurs `;`).
 - [ ] Permettre la création d'une base de données dans le répertoire désiré
 - [ ] Affichage des FK et PK dans List Tables
 - [ ] Coloration des commentaires -- et /*    */
-- [ ] Insérer uneligne vide a chaqe sortie dans l'output, pas seulement make pretty table
-
-
 ---
 
 ## 🔧 Priorités techniques
 
-- [ ] Affiner les retours à la ligne automatiques dans la mise en forme SQL :
+- [x] Affiner les retours à la ligne automatiques dans la mise en forme SQL :
   - Ne pas insérer de `\n` entre `LEFT`, `RIGHT`, `INNER`, etc. et `JOIN`.
   - Ajouter un retour à la ligne devant `JOIN` **seulement** s’il est utilisé seul.
+  (✔️ implémenté dans utils.py le 22/07/2025)
+
 - [ ] Vérifier la lisibilité des requêtes longues dans la zone de sortie.
 - [ ] Prévoir un message d’erreur plus explicite quand aucune base de données n’est sélectionnée.
 - [ ] Vérifier le comportement et l’ergonomie des zones scrollables (résultats, éditeur SQL…).
