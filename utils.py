@@ -67,23 +67,6 @@ def make_pretty_table(info, body):
     return result
 
 
-def load_recent_files(file_path, target_list, max_items=8):
-    """
-    Loads recent files into the target list.
-    """
-    if not os.path.exists(file_path):
-        return None
-
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = [line.strip() for line in f if line.strip()]
-            target_list.clear()
-            target_list.extend(lines[:max_items])
-    except Exception as e:
-        print(f"Error loading recent files from {file_path}: {e}")
-
-    return None
-
 
 def save_recent_files(file_path, source_list):
     """
@@ -177,33 +160,42 @@ def on_closing(window: Tk):
     window.destroy()
     return None
 
-
 def update_recent_sql_files(filepath, max_items=10):
-    """
-    Adds file to recent list (deduplicated, capped).
-    """
     if filepath in global_vars.recent_sql_files:
         global_vars.recent_sql_files.remove(filepath)
 
     global_vars.recent_sql_files.insert(0, filepath)
     global_vars.recent_sql_files = global_vars.recent_sql_files[:max_items]
-    return None
 
+    # Sauvegarder la liste mise à jour
+    save_recent_files("recent_sql_files.txt", global_vars.recent_sql_files)
 
-def display_result(output_box, text):
-    '''Displays result text in output area'''
-    output_box.config(state='normal')
-    output_box.insert(END, text.rstrip() + "\n\n")
-    output_box.see(END)
-    output_box.config(state='disabled')
-    return None
+##def update_recent_sql_files(filepath, max_items=10):
+##    """
+##    Adds file to recent list (deduplicated, capped).
+##    """
+##    if filepath in global_vars.recent_sql_files:
+##        global_vars.recent_sql_files.remove(filepath)
+##
+##    global_vars.recent_sql_files.insert(0, filepath)
+##    global_vars.recent_sql_files = global_vars.recent_sql_files[:max_items]
+##    return None
 
+def load_recent_files(file_path, target_list, max_items=8):
+    """
+    Loads recent files into the target list.
+    """
+    if not os.path.exists(file_path):
+        return None
 
-def clear_output(output_box):
-    '''Clears the output area'''
-    output_box.config(state='normal')
-    output_box.delete("1.0", END)
-    output_box.config(state='disabled')
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = [line.strip() for line in f if line.strip()]
+            target_list.clear()
+            target_list.extend(lines[:max_items])
+    except Exception as e:
+        print(f"Error loading recent files from {file_path}: {e}")
+
     return None
 
 
@@ -225,4 +217,22 @@ def clean_recent_sql_files():
         f for f in global_vars.recent_sql_files if os.path.exists(f)
     ]
     save_recent_files("recent_sql_files.txt", global_vars.recent_sql_files)
+    return None
+
+
+
+def display_result(output_box, text):
+    '''Displays result text in output area'''
+    output_box.config(state='normal')
+    output_box.insert(END, text.rstrip() + "\n\n")
+    output_box.see(END)
+    output_box.config(state='disabled')
+    return None
+
+
+def clear_output(output_box):
+    '''Clears the output area'''
+    output_box.config(state='normal')
+    output_box.delete("1.0", END)
+    output_box.config(state='disabled')
     return None

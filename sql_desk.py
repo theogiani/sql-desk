@@ -92,7 +92,7 @@ button_quit.grid(row=0, column=2, padx=5, pady=10, sticky="n")
 # --- SQL File Menu ---
 sql_file_button = Menubutton(frame_buttons, text="SQL File", bg=global_vars.bg_button, fg=global_vars.text_colour, relief=RAISED)
 sql_file_menu = Menu(sql_file_button, tearoff=0)
-sql_file_menu.add_command(label="Open SQL...", command=lambda: [open_sql_code(sql_textbox), refresh_sql_file_menu(sql_file_menu, sql_textbox)])
+sql_file_menu.add_command(label="Open SQL...", command=lambda: open_sql_code(sql_textbox, menu=sql_file_menu))
 sql_file_menu.add_command(label="Save SQL...", command=lambda: save_sql_code(sql_textbox, sql_file_menu))
 sql_file_menu.add_separator()
 for i, filename in enumerate(global_vars.recent_sql_files, start=1):

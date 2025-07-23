@@ -1,3 +1,18 @@
+# 🗓️ Historique des mises à jour
+
+- **23/07/2025**  
+  - Permis l’exécution de la sélection SQL dans l’éditeur.  
+  - Corrigé le bug de rafraîchissement immédiat du menu « fichiers récents » (SQL et bases).  
+  - Consolidé la suppression des fonctions `run_sql` et `run_sql_pretty`, tout est maintenant géré par `run_query`.  
+  - Ajouté la gestion du paramètre `menu` pour rafraîchir les menus récents directement dans `open_sql_code` et `save_sql_code`.  
+
+- **22/07/2025**  
+  - Amélioration des retours à la ligne automatiques dans la mise en forme SQL (gestion des mots-clés JOIN).  
+  - Vérification de l’ergonomie des zones scrollables (éditeur SQL et sortie).  
+
+---
+
+
 # 📋 TODO – SQL Desk
 
 Liste des fonctionnalités prévues, bugs à corriger, et idées d’amélioration pour le projet **SQL Desk**.
@@ -7,8 +22,7 @@ Liste des fonctionnalités prévues, bugs à corriger, et idées d’améliorati
 ## 🚀 Chantiers majeurs (post-migration GitHub)
 
 - [x] Insérer une ligne vide à chaque sortie dans l'output, pas seulement dans make_pretty_table ✔️ 23/07/2025
-- [ ] Un CTRL Z / CTRL S ?
-- [ ] Permettre l’exécution **de la sélection active** dans la zone SQL, si une sélection est faite.
+- [x] Permettre l’exécution **de la sélection active** dans la zone SQL, si une sélection est faite ✔️ 23/07/2025
 - [ ] Permettre l’exécution de suites d’instructions SQL (scripts contenant plusieurs `;`).
 - [ ] Permettre la création d'une base de données dans le répertoire désiré
 - [ ] Affichage des FK et PK dans List Tables
@@ -23,9 +37,12 @@ Liste des fonctionnalités prévues, bugs à corriger, et idées d’améliorati
   - Ajouter un retour à la ligne devant `JOIN` **seulement** s’il est utilisé seul.
   (✔️ implémenté dans utils.py le 22/07/2025)
 
-- [x] Vérifier le comportement et l’ergonomie des zones scrollables (résultats, éditeur SQL…) ✔️ 23/07/2025
-- [x] Vérifier que le menu « Recent files » fonctionne correctement ✔️ 23/07/2025
-- [ ] Vérifier la lisibilité des requêtes longues dans la zone de sortie.
+- [x] Vérifier le comportement et l’ergonomie des zones scrollables (résultats, éditeur SQL…) ✔️ 23/07/2025  
+- [x] Vérifier que le menu « Recent files » fonctionne correctement (bases et SQL) ✔️ 23/07/2025  
+  - Correction du bug d’actualisation immédiate du menu après ouverture ou sauvegarde de fichiers  
+  - Passage du paramètre `menu` aux fonctions `open_sql_code` et `save_sql_code`  
+  - Rafraîchissement du menu réalisé à l’intérieur des fonctions d’ouverture/sauvegarde  
+- [ ] Vérifier la lisibilité des requêtes longues dans la zone de sortie.  
 - [ ] Prévoir un message d’erreur plus explicite quand aucune base de données n’est sélectionnée.
 
 ---

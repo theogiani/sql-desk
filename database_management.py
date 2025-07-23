@@ -40,9 +40,10 @@ def create_new_database(output_textbox):
     return None
 
 
-def choose_database(value, *, output_textbox=None, window=None):
+def choose_database(value, *, output_textbox=None, window=None, db_menu=None):
     """
-    Sets current database, prints message, and updates window title.
+    Sets current database, prints message, updates window title,
+    updates recent DBs list, and refreshes the recent DB menu if provided.
     """
     if not os.path.exists(value):
         if output_textbox:
@@ -64,5 +65,9 @@ def choose_database(value, *, output_textbox=None, window=None):
     global_vars.recent_db_files.insert(0, value)
     global_vars.recent_db_files = list(dict.fromkeys(global_vars.recent_db_files))[:10]
     save_recent_files("recent_db_files.txt", global_vars.recent_db_files)
-    return None
 
+    # Refresh the recent DB menu if the menu is provided
+    if db_menu and output_textbox and window:
+        refresh_db_file_menu(db_menu, output_textbox, window)
+
+    return None
