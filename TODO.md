@@ -1,14 +1,3 @@
-# 🗓️ Historique des mises à jour
-
-- **23/07/2025**  
-  - Permis l’exécution de la sélection SQL dans l’éditeur.  
-  - Corrigé le bug de rafraîchissement immédiat du menu « fichiers récents » (SQL et bases).  
-  - Consolidé la suppression des fonctions `run_sql` et `run_sql_pretty`, tout est maintenant géré par `run_query`.  
-  - Ajouté la gestion du paramètre `menu` pour rafraîchir les menus récents directement dans `open_sql_code` et `save_sql_code`.  
-
-- **22/07/2025**  
-  - Amélioration des retours à la ligne automatiques dans la mise en forme SQL (gestion des mots-clés JOIN).  
-  - Vérification de l’ergonomie des zones scrollables (éditeur SQL et sortie).  
 
 ---
 
@@ -70,6 +59,30 @@ Liste des fonctionnalités prévues, bugs à corriger, et idées d’améliorati
 ## 💭 À discuter / idées en attente
 
 - [ ] Deux idées supplémentaires à retrouver et ajouter ici.
+
+---
+
+# 🗓️ Historique des mises à jour
+
+- **23/07/2025**  
+  - [x] Permis l’exécution de la sélection SQL dans l’éditeur ✔️ 23/07/2025  
+  - Modification de la fonction `run_query` pour détecter si une portion de texte est sélectionnée dans le widget SQL.  
+  - Si une sélection existe, uniquement cette partie est extraite et exécutée, sinon toute la requête dans le textbox est exécutée.  
+  - Gestion de la sélection conservée avant et après l’application du formatage SQL (pretty print) pour ne pas perdre le surlignage de la sélection.  
+  - Correction des erreurs liées à l’exécution de multiples instructions dans `run_query`, avec l’abandon des anciennes fonctions `run_sql` et `run_sql_pretty`.  
+  - Adaptation de l’interface pour que le bouton « Run SQL » déclenche cette fonction unifiée prenant en charge la sélection.
+ 
+  - Corrigé le bug de rafraîchissement immédiat du menu « fichiers récents » (SQL et bases).  
+  - Consolidé la suppression des fonctions `run_sql` et `run_sql_pretty`, tout est maintenant géré par `run_query`.  
+  - Ajouté la gestion du paramètre `menu` pour rafraîchir les menus récents directement dans `open_sql_code` et `save_sql_code`.  
+  - Exécution unifiée des requêtes SQL via `run_query` (qui gère maintenant aussi la sélection) ✔️ 23/07/2025  
+  - Abandon des fonctions `run_sql` et `run_sql_pretty` qui n’étaient plus utilisées depuis longtemps.  
+  - Possibilité d’envisager un renommage futur de `run_query` en `run_sql` si besoin, notamment si la gestion des scripts multi-requêtes est ajoutée.
+
+- **22/07/2025**  
+  - Amélioration des retours à la ligne automatiques dans la mise en forme SQL (gestion des mots-clés JOIN).  
+  - Vérification de l’ergonomie des zones scrollables (éditeur SQL et sortie).  
+
 
 ---
 
