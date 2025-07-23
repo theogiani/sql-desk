@@ -5,7 +5,7 @@
 import os
 import re
 import global_vars
-from tkinter import Tk
+from tkinter import Tk, END
 
 SQL_KEYWORDS = {
     "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET",
@@ -21,7 +21,6 @@ SQL_KEYWORDS = {
     "VIEW", "TRIGGER", "BEFORE", "AFTER", "INSTEAD", "OF", "BEGIN", "COMMIT", "ROLLBACK", "TRANSACTION"
 }
 
-import re
 
 LINEBREAK_KEYWORDS = {
     "SELECT", "FROM", "WHERE", "GROUP BY", "HAVING", "ORDER BY", "LIMIT", "OFFSET",
@@ -30,15 +29,15 @@ LINEBREAK_KEYWORDS = {
     "JOIN", "INNER JOIN", "LEFT JOIN", "CROSS JOIN", "NATURAL JOIN", "ON"
 }
 
-def add_linebreaks(sql_code):
-    formatted = sql_code
-    for keyword in sorted(LINEBREAK_KEYWORDS, key=len, reverse=True):  # longest first
-        pattern = rf"\b{re.escape(keyword)}\b"
-        formatted = re.sub(pattern, rf"\n{keyword}", formatted, flags=re.IGNORECASE)
-    # Nettoyage : supprime les \n en double ou les espaces inutiles
-    formatted = re.sub(r"\n\s*", "\n", formatted)
-    return formatted.strip()
-
+##def add_linebreaks(sql_code):
+##    formatted = sql_code
+##    for keyword in sorted(LINEBREAK_KEYWORDS, key=len, reverse=True):  # longest first
+##        pattern = rf"\b{re.escape(keyword)}\b"
+##        formatted = re.sub(pattern, rf"\n{keyword}", formatted, flags=re.IGNORECASE)
+##    # Nettoyage : supprime les \n en double ou les espaces inutiles
+##    formatted = re.sub(r"\n\s*", "\n", formatted)
+##    return formatted.strip()
+##
 
 SQL_KEYWORDS = SQL_KEYWORDS.union(LINEBREAK_KEYWORDS)
 
@@ -188,5 +187,42 @@ def update_recent_sql_files(filepath, max_items=10):
 
     global_vars.recent_sql_files.insert(0, filepath)
     global_vars.recent_sql_files = global_vars.recent_sql_files[:max_items]
+    return None
 
+
+def display_result(output_box, text):
+    '''Displays result text in output area'''
+    output_box.config(state='normal')
+    output_box.insert(END, text.rstrip() + "\n\n")
+    output_box.see(END)
+    output_box.config(state='disabled')
+    return None
+
+
+def clear_output(output_box):
+    '''Clears the output area'''
+    output_box.config(state='normal')
+    output_box.delete("1.0", END)
+    output_box.config(state='disabled')
+    return None
+
+
+def clean_recent_db_files():
+    """
+    Removes non-existing .db files from recent_db_files.
+    """
+    global_vars.recent_db_files = [
+        f for f in global_vars.recent_db_files if os.path.exists(f)
+    ]
+    save_recent_files("recent_db_files.txt", global_vars.recent_db_files)
+    return None
+
+def clean_recent_sql_files():
+    """
+    Removes non-existing .sql files from recent_sql_files.
+    """
+    global_vars.recent_sql_files = [
+        f for f in global_vars.recent_sql_files if os.path.exists(f)
+    ]
+    save_recent_files("recent_sql_files.txt", global_vars.recent_sql_files)
     return None

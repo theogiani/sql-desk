@@ -29,7 +29,8 @@ from GUI_functions import (
 )
 
 from utils import (
-    load_recent_files, save_recent_files, insert_linebreaks_before_keywords, on_closing
+    load_recent_files, clean_recent_db_files, save_recent_files,
+    insert_linebreaks_before_keywords, clean_recent_sql_files, on_closing
 )
 
 from database_management import (
@@ -103,6 +104,7 @@ sql_file_button.config(menu=sql_file_menu)
 sql_file_button.grid(row=0, column=3, padx=5, pady=10, sticky="n")
 
 
+
 # --- Main Paned layout (Query / Output) ---
 main_paned = PanedWindow(window, orient=VERTICAL)
 main_paned.grid(row=1, column=0, columnspan=2, sticky="nsew")
@@ -123,8 +125,13 @@ window.grid_columnconfigure(1, weight=1)
 # --- SQL Query Frame ---
 Label(frame_query, text='SQL Shell :', bg=global_vars.bg_frame, fg=global_vars.text_colour).grid(row=0, column=0, sticky="nw")
 sql_font = font.Font(family="Courier", size=global_vars.font_size_sql)
-sql_textbox = Text(frame_query, width=60, height=10, background=global_vars.bg_textbox, font=sql_font)
+
+sql_textbox = ScrolledText(frame_query, width=60, height=10, background=global_vars.bg_textbox, font=sql_font)
 sql_textbox.grid(row=1, column=0, sticky="nsew")
+
+clean_recent_sql_files()
+refresh_sql_file_menu(sql_file_menu, sql_textbox)
+
 
 button_frame = Frame(frame_query, bg=global_vars.bg_frame)
 button_frame.grid(row=2, column=0, sticky="nw", pady=2)
@@ -145,11 +152,14 @@ frame_query.grid_columnconfigure(0, weight=1)
 # --- Output Frame ---
 Label(frame_output, text='Output :', bg=global_vars.bg_frame, fg=global_vars.text_colour).grid(row=0, column=0, sticky="nw")
 output_font = font.Font(family="Courier", size=global_vars.font_size_output)
-output_textbox = Text(frame_output, width=75, height=20, background=global_vars.bg_textbox, font=output_font)
+output_textbox = ScrolledText(frame_output, width=75, height=20, background=global_vars.bg_textbox, font=output_font)
 output_textbox.grid(row=1, column=0, sticky="nsew")
 output_textbox.config(state='disabled')
 
+
 refresh_db_file_menu(db_menu, output_textbox, window)
+clean_recent_db_files()
+
 
 button_frame_out = Frame(frame_output, bg=global_vars.bg_frame)
 button_frame_out.grid(row=2, column=0, sticky="nw", pady=2)

@@ -13,7 +13,7 @@ import global_vars
 from utils import (
     load_recent_files, save_recent_files, make_pretty_table,
     highlight_keywords, colorize_keywords, insert_linebreaks_before_keywords,
-    update_recent_sql_files
+    update_recent_sql_files, display_result, clear_output
 )
 from tkinter import StringVar, OptionMenu, END, filedialog, messagebox, font
 from database_management import menu_open_database, create_new_database, choose_database
@@ -72,16 +72,13 @@ def run_sql(query, output_textbox):
     display_result(output_textbox, result)
     return None
 
-
 def get_tables(output_textbox):
     '''Displays table names and columns in current DB'''
     db_path = global_vars.current_database
     output_textbox.config(state="normal")
-    output_textbox.delete("1.0", "end")
 
     if not db_path:
-        output_textbox.insert("1.0", "No database selected.")
-        output_textbox.config(state="disabled")
+        display_result(output_textbox, "No database selected.")
         return None
 
     try:
@@ -91,38 +88,24 @@ def get_tables(output_textbox):
         tables = [row[0] for row in cursor.fetchall()]
 
         if tables:
-            output_textbox.insert("1.0", "Tables in current database:\n\n")
+            lines = ["Tables in current database:"]
             for table in tables:
                 cursor.execute(f"PRAGMA table_info({table});")
                 columns = [row[1] for row in cursor.fetchall()]
                 col_list = ", ".join(columns)
-                output_textbox.insert("end", f"• {table} ({col_list})\n")
+                lines.append(f"• {table} ({col_list})")
+            result = "\n".join(lines)
         else:
-            output_textbox.insert("1.0", "No tables found in the current database.")
+            result = "No tables found in the current database."
 
         conn.close()
 
     except Exception as e:
-        output_textbox.insert("1.0", f"Error retrieving tables:\n{e}")
+        result = f"Error retrieving tables:\n{e}"
 
-    output_textbox.config(state="disabled")
+    display_result(output_textbox, result)
     return None
 
-
-def clear_output(output_box):
-    '''Clears the output area'''
-    output_box.config(state='normal')
-    output_box.delete("1.0", END)
-    output_box.config(state='disabled')
-    return None
-
-
-def display_result(output_box, text):
-    '''Displays result text in output area'''
-    output_box.config(state='normal')
-    output_box.insert(END, text + "\n")
-    output_box.config(state='disabled')
-    return None
 
 
 def save_sql_code(sql_textbox, menu=None):
@@ -206,7 +189,7 @@ def refresh_db_file_menu(db_menu, output_textbox, window=None):
     db_menu.delete(0, 'end')
 
     db_menu.add_command(label="Open Database...", command=lambda: menu_open_database(output_textbox, window))
-    db_menu.add_command(label="Create New Database...", command=lambda: create_new_database(output_textbox, window))
+    db_menu.add_command(label="Create New Database...", command=lambda: create_new_database(output_textbox))
     db_menu.add_separator()
 
     for i, filename in enumerate(global_vars.recent_db_files, start=1):
