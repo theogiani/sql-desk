@@ -243,20 +243,8 @@ def refresh_sql_file_menu(menu, textbox):
     return None
 
 
-def refresh_db_file_menu(db_menu, output_textbox, window=None):
-    '''Refreshes Database menu with recent databases'''
-    db_menu.delete(0, 'end')
 
-    db_menu.add_command(label="Open Database...", command=lambda: menu_open_database(output_textbox, window))
-    db_menu.add_command(label="Create New Database...", command=lambda: create_new_database(output_textbox))
-    db_menu.add_separator()
 
-    for i, filename in enumerate(global_vars.recent_db_files, start=1):
-        db_menu.add_command(
-            label=f"{i}. {os.path.basename(filename)}",
-            command=lambda filename=filename: choose_database(filename, output_textbox=output_textbox, window=window)
-        )
-    return None
 
 
 def pretty_print_sql(sql_textbox):
@@ -320,3 +308,8 @@ def pretty_print_sql(sql_textbox):
 ##    result = result.strip() + '\n\n'
 ##    display_result(output_textbox, result)
 ##    return None
+
+
+
+
+

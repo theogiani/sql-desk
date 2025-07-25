@@ -13,6 +13,78 @@ Liste des fonctionnalités prévues, bugs à corriger, et idées d’améliorati
 - [x] Insérer une ligne vide à chaque sortie dans l'output, pas seulement dans make_pretty_table ✔️ 23/07/2025
 - [x] Permettre l’exécution **de la sélection active** dans la zone SQL, si une sélection est faite ✔️ 23/07/2025
 - [ ] Permettre l’exécution de suites d’instructions SQL (scripts contenant plusieurs `;`).
+
+    ### 🟨 [À FAIRE] Exécution de scripts SQL multi-instructions (`;`)
+
+**Objectif** : permettre à l’utilisateur d’exécuter un bloc SQL contenant plusieurs instructions (ex. : `DROP TABLE`, `CREATE`, `INSERT`, `SELECT`, etc.), séparées par des points-virgules, **dans une seule exécution**.
+
+#### ✅ Problèmes à résoudre
+
+1. **Ne pas faire un simple `split(';')`** :  
+   Un point-virgule peut exister **à l’intérieur d’une chaîne de caractères** (ex. : `'Je t’aime ; tu me fuis'`).  
+   Il ne faut **pas découper à cet endroit**, sinon la requête sera invalide.
+
+2. **Détecter les `;` *hors chaînes*** :  
+   Il faut parcourir le SQL caractère par caractère en gardant un état logique :
+   - `in_single_quote = True/False`
+   - `in_double_quote = True/False`
+   - On coupe uniquement les `;` **hors guillemets**
+
+---
+
+#### ✨ Fonction proposée (à intégrer plus tard)
+
+```python
+def split_sql_statements(sql_code: str):
+    statements = []
+    current_stmt = ''
+    in_single_quote = False
+    in_double_quote = False
+
+    for char in sql_code:
+        current_stmt += char
+
+        if char == "'" and not in_double_quote:
+            in_single_quote = not in_single_quote
+        elif char == '"' and not in_single_quote:
+            in_double_quote = not in_double_quote
+        elif char == ';' and not in_single_quote and not in_double_quote:
+            statements.append(current_stmt.strip())
+            current_stmt = ''
+
+    if current_stmt.strip():
+        statements.append(current_stmt.strip())
+
+    return statements
+```
+
+---
+
+#### 🔧 À faire dans `run_sql()` (anciennement `run_query()`)
+
+- Remplacer l’appel direct `cursor.execute(sql_code)` par une boucle :
+
+```python
+statements = split_sql_statements(sql_code)
+
+for stmt in statements:
+    try:
+        cursor.execute(stmt)
+        if stmt.lower().startswith("select"):
+            rows = cursor.fetchall()
+            info = cursor.description
+            result = make_pretty_table(info, rows)
+        else:
+            result = f"> OK: {cursor.rowcount} row(s) affected."
+        output_textbox.insert(END, result + "\n\n")
+    except Exception as e:
+        output_textbox.insert(END, f"> Error: {e}\n\n")
+```
+
+---
+
+💡 À intégrer dès que possible pour permettre une exécution fluide de scripts SQL complets.
+
 - [ ] Permettre la création d'une base de données dans le répertoire désiré
 - [ ] Affichage des FK et PK dans List Tables
 - [ ] Coloration des commentaires `--` et `/* ... */`
@@ -90,3 +162,64 @@ Liste des fonctionnalités prévues, bugs à corriger, et idées d’améliorati
 
 N’hésitez pas à proposer des idées ou des améliorations via issues ou pull requests.  
 Projet conçu initialement pour un usage pédagogique (15–18 ans) dans le cadre du cours d’ICT au sein des Écoles Européennes.
+24/07/25 TOUT merde :
+
+Tu as raison d’être furieux : entre circularité, imports impossibles et fonctions déplacées dans tous les sens, ton projet est devenu un champ de mines. Voici un **récap clair et une marche à suivre** pour reprendre la main dès que tu reviens :
+
+---
+
+### 🧠 **Ce qui t’a mis dans la panade**
+
+1. **Circularité** :
+
+   * `utils.py` importe `database_management.py`
+   * `database_management.py` importe `utils.py`
+   * Résultat : 💥 `ImportError` au démarrage
+
+2. **Fonction `refresh_db_file_menu` mal placée** :
+
+   * Elle dépend à la fois du menu (`tk.Menu`) et des fonctions de gestion de BDD.
+   * Placée dans `utils.py`, ça rendait les dépendances inextricables.
+
+---
+
+### ✅ **Solution fonctionnelle à appliquer au calme**
+
+1. **Déplace `refresh_db_file_menu()` dans `GUI_functions.py`**
+
+   * C’est une fonction **d’interface graphique**, pas de gestion pure.
+   * Elle manipule le **menu tkinter**, donc elle a sa place dans `GUI_functions`.
+
+2. **Dans `database_management.py`** :
+
+   * Tu peux **l’appeler via un `from GUI_functions import refresh_db_file_menu`** sans circularité.
+
+3. **Dans `utils.py`** :
+
+   * Tu **ne dois pas importer** `database_management`. Laisse `utils.py` neutre (helpers seulement).
+
+4. **Organisation des fichiers** :
+
+   | Fichier                  | Contenu principal                                                |
+   | ------------------------ | ---------------------------------------------------------------- |
+   | `utils.py`               | Fonctions autonomes : sauvegarde fichiers, tables jolies…        |
+   | `database_management.py` | Fonctions logiques : ouvrir/créer/choisir une BDD                |
+   | `GUI_functions.py`       | Fonctions Tkinter : boutons, menus, affichage, rafraîchissements |
+   | `sql_desk_main_ui.py`    | Interface principale (ancien `sql_desk.py`)                      |
+
+---
+
+
+---
+
+## ✅ [2025-07-25] Migration vers `/src/` et correction du bug de mise à jour des fichiers récents .db
+
+- Tous les fichiers `.py` principaux ont été déplacés dans le sous-répertoire `src/` :
+  - `sql_desk.py`, `GUI_functions.py`, `database_management.py`, `utils.py`, `global_vars.py`
+- Le menu des bases de données récentes (db_menu) se met désormais à jour **sans redémarrage** :
+  - `refresh_db_file_menu()` a été déplacée de `utils.py` à `database_management.py` pour éviter une circularité d'import.
+  - Cette fonction est maintenant appelée à la fin de `choose_database()`, ce qui garantit que toute ouverture ou création de base met à jour le menu.
+- Le comportement est maintenant **cohérent avec** celui du menu des fichiers SQL récents (`recent_sql_files`), qui fonctionnait déjà sans redémarrage.
+- Des appels `print()` de debug sont présents un peu partout pour suivi temporaire :
+  - ➤ **PRIORITÉ PROCHAINE SESSION** : Nettoyer tous les `print()` de debug et supprimer la fonction inutilisée de `sql_desk.py`.
+

@@ -6,6 +6,8 @@ import os
 import re
 import global_vars
 from tkinter import Tk, END
+#from database_management import menu_open_database, create_new_database
+
 
 SQL_KEYWORDS = {
     "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET",
@@ -236,3 +238,5 @@ def clear_output(output_box):
     output_box.delete("1.0", END)
     output_box.config(state='disabled')
     return None
+
+
