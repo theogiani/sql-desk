@@ -341,4 +341,26 @@ def quit_app(window):
 - **Situation** : après insertion, un espace peut subsister avant `\n` (ex. `* ␠\nFROM`).  
 - **Solution** : suppression par  
   ```python
-  re.sub(r"[ \t]+\n", "\n", formatted)
+  re.sub(r"[ \t]+\n", "\n", formatted)```
+  
+  
+## ✅ 2025-08-09 – Avancées de la session
+
+- **utils.py**  
+  - Amélioration de `insert_linebreaks_before_keywords()` pour éviter l’ajout d’un retour à la ligne initial.  
+  - Tests validés pour tous les cas connus.
+- **TODO.md**  
+  - Mise à jour des entrées liées à la gestion du retour à la ligne.
+- **.gitignore**  
+  - Ajout de la règle `test*.py` pour ignorer les fichiers de test Python.
+- **GUI_functions.py, database_management.py, sql_desk.py**  
+  - Ajustements mineurs.
+- **EcoAdv.db**  
+  - Mise à jour de la base d’exemple.
+- **Git**  
+  - Commit et push effectués avec message clair et complet.
+
+### Renommage de `run_query()` en `run_sql()`  
+   - La nouvelle fonction `run_sql()` remplacera l’ancienne `run_sql` abandonnée.  
+   - Elle gèrera à la fois l’exécution d’une requête unique (ou portion sélectionnée dans l’éditeur)  
+     et l’exécution d’un script multi-instructions séparées par `;`.

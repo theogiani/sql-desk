@@ -24,17 +24,12 @@ from tkinter.scrolledtext import ScrolledText
 import os, global_vars
 
 from GUI_functions import (
-    run_query, get_tables, save_sql_code,
+    run_sql, get_tables, save_sql_code,
     open_sql_code, change_font_size, refresh_sql_file_menu,
-     pretty_print_sql
+    pretty_print_sql
 )
 
-###from utils import (
-##    load_recent_files, clear_output, clean_recent_db_files, save_recent_files,
-##    insert_linebreaks_before_keywords, clean_recent_sql_files, on_closing
-##)
-
-from utils import ( load_recent_files, clear_output,
+from utils import (load_recent_files, clear_output,
                     clean_recent_db_files, clean_recent_sql_files, on_closing)
 
 from database_management import (
@@ -125,7 +120,7 @@ refresh_sql_file_menu(sql_file_menu, sql_textbox)
 button_frame = Frame(frame_query, bg=global_vars.bg_frame)
 button_frame.grid(row=2, column=0, sticky="nw", pady=2)
 Button(button_frame, text="Run SQL", width=10, bg=global_vars.bg_button, fg=global_vars.text_colour,
-       command=lambda: run_query(sql_textbox, output_textbox)).pack(side=LEFT)
+       command=lambda: run_sql(sql_textbox, output_textbox)).pack(side=LEFT)
 Button(button_frame, text="List Tables", width=12, bg=global_vars.bg_button, fg=global_vars.text_colour,
        command=lambda: get_tables(output_textbox)).pack(side=LEFT, padx=10)
 Button(button_frame, text="Pretty Print", width=12, bg=global_vars.bg_button, fg=global_vars.text_colour,

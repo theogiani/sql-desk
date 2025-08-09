@@ -20,100 +20,84 @@ from tkinter import filedialog, messagebox
 
 
 
-def run_query(sql_textbox, output_textbox):
-    '''Executes a single query after pretty-printing'''
-
+def run_sql(sql_textbox, output_textbox):
+    """
+    Execute the selected SQL (if any) or the whole editor content.
+    Supports multiple statements (via sqlite3.complete_statement).
+    Pretty-print is applied after execution only when no selection is used.
+    """
     if not global_vars.current_database:
-        display_result(output_textbox, "No database selected.\n")
+        display_result(output_textbox, "No database selected.")
         return None
 
-    # Sauvegarder la sélection si elle existe
-    selection = None
+    # 1) Récupérer soit la sélection, soit tout le contenu
     if sql_textbox.tag_ranges("sel"):
-        selection = (sql_textbox.index("sel.first"), sql_textbox.index("sel.last"))
-
-    # Restaurer la sélection si elle existait
-    if selection:
-        sql_textbox.tag_add("sel", selection[0], selection[1])
-
-    # Récupérer la sélection ou tout le contenu
-    if sql_textbox.tag_ranges("sel"):
-        formatted_sql = sql_textbox.get("sel.first", "sel.last")
+        sql_code = sql_textbox.get("sel.first", "sel.last").strip()
+        do_pretty_after = False  # on ne reformate pas pour ne pas casser la sélection
     else:
-        formatted_sql = sql_textbox.get("1.0", "end-1c")
+        sql_code = sql_textbox.get("1.0", "end-1c").strip()
+        do_pretty_after = True   # on reformate le buffer complet après exécution
 
+    if not sql_code:
+        display_result(output_textbox, "(Nothing to execute.)")
+        return None
+
+    # 2) Découper en statements complets
+    statements = split_sql_statements(sql_code)
+    if not statements:
+        display_result(output_textbox, "(No complete SQL statement found.)")
+        return None
+
+    # 3) Exécuter chaque statement
     try:
-        conn = sqlite3.connect(global_vars.current_database)
-        cursor = conn.cursor()
-        cursor.execute(formatted_sql)
+        with sqlite3.connect(global_vars.current_database) as conn:
+            conn.execute("PRAGMA foreign_keys = ON;")
+            cur = conn.cursor()
 
-        if formatted_sql.strip().lower().startswith("select"):
-            rows = cursor.fetchall()
-            result = make_pretty_table(cursor.description, rows)
-        else:
-            conn.commit()
-            result = "Query executed successfully."
-
-        conn.close()
-    
+            for idx, stmt in enumerate(statements, 1):
+                try:
+                    cur.execute(stmt)
+                    if stmt.strip().lower().startswith("select"):
+                        rows = cur.fetchall()
+                        result = make_pretty_table(cur.description, rows)
+                    else:
+                        conn.commit()
+                        result = "OK."
+                    display_result(output_textbox, result)
+                except Exception as e:
+                    display_result(output_textbox, f"Error in statement {idx}: {e}")
 
     except Exception as e:
-        result = f"Error: {e}"
+        display_result(output_textbox, f"Connection error: {e}")
 
-    display_result(output_textbox, result)
-    # Pretty print (modifie le contenu, donc fait perdre la sélection)
-    pretty_print_sql(sql_textbox)
+    # 4) Pretty print uniquement si on n'avait PAS de sélection
+    if do_pretty_after:
+        pretty_print_sql(sql_textbox)
+
     return None
 
 
 
+def split_sql_statements(sql_code):
+    """
+    Split SQL code into complete statements.
+    Uses sqlite3.complete_statement() to safely detect the end of each statement,
+    avoiding naive splitting on ';'. Handles multi-line statements correctly.
+    Args:
+        sql_code (str): SQL code, possibly containing multiple statements.
 
-##
-##
-##def run_sql(sql_textbox, output_textbox):
-##    # Récupérer la sélection si elle existe, sinon tout le contenu
-##    print(f'Avant recherche sel')
-##    if sql_textbox.tag_ranges("sel"):
-##        query = sql_textbox.get("sel.first", "sel.last")
-##        print(query)
-##    else:
-##        query = sql_textbox.get("1.0", "end-1c")
-##
-##    # Debug : afficher la requête brute récupérée
-##    print(f"Raw query to execute:\n{query}\n---")
-##
-##    # Séparer le script en instructions SQL individuelles
-##    statements = [s.strip() for s in query.strip().split(';') if s.strip()]
-##
-##    # Afficher dans la zone de sortie la liste des instructions détectées
-##    display_result(output_textbox, f"Statements to execute ({len(statements)}):\n" + "\n".join(statements) + "\n\n")
-##
-##    result = ''
-##    try:
-##        with sqlite3.connect(global_vars.current_database) as db:
-##            cursor = db.cursor()
-##            print("Statements found:")
-##            for i, stmt in enumerate(statements):
-##                print(f"{i+1}: {repr(stmt)}")
-##
-##            for statement in statements:
-##                if statement.lower().startswith("select"):
-##                    cursor.execute(statement)
-##                    rows = cursor.fetchall()
-##                    result += make_pretty_table(cursor.description, rows) + '\n'
-##                else:
-##                    cursor.execute(statement)
-##                    db.commit()
-##                    result += f"Query executed: {statement[:30]}...\n"
-##
-##    except Exception as e:
-##        result = f"ERROR: {e}"
-##
-##    result = result.strip() + '\n\n'
-##    display_result(output_textbox, result)
-    return None
+    Returns:
+        list[str]: Complete SQL statements without surrounding whitespace.
+    """
+    buffer = ""
+    statements = []
 
-
+    for line in sql_code.splitlines():
+        buffer += line + "\n"
+        if sqlite3.complete_statement(buffer):
+            statements.append(buffer.strip())
+            buffer = ""
+    return statements
 
 
 def get_tables(output_textbox):
@@ -234,9 +218,21 @@ def refresh_sql_file_menu(menu, textbox):
 
 def pretty_print_sql(sql_textbox):
     '''Applies keyword capitalisation, linebreaks, and colouring'''
+    import re  # local import pour éviter d'ajouter d'import en haut
     raw_query = sql_textbox.get("1.0", "end-1c")
+
+    # 1) Line breaks avant les mots-clés
     formatted_query = insert_linebreaks_before_keywords(raw_query)
+
+    # 2) Ligne vide après chaque instruction terminée par ';' (sans doubler)
+    #    - agit seulement quand le ';' est suivi d'un \n
+    #    - n'ajoute rien en fin de fichier si pas de \n après ';'
+    formatted_query = re.sub(r';[ \t]*\n(?!\n)', ';\n\n', formatted_query)
+
+    # 3) Capitalisation des mots-clés
     formatted_query = highlight_keywords(formatted_query)
+
+    # 4) Injecter + recoloriser
     sql_textbox.delete("1.0", "end")
     sql_textbox.insert("1.0", formatted_query)
     colorize_keywords(sql_textbox)
