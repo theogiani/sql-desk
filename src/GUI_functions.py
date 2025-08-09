@@ -33,10 +33,10 @@ def run_sql(sql_textbox, output_textbox):
     # 1) Récupérer soit la sélection, soit tout le contenu
     if sql_textbox.tag_ranges("sel"):
         sql_code = sql_textbox.get("sel.first", "sel.last").strip()
-        do_pretty_after = False  # on ne reformate pas pour ne pas casser la sélection
+        do_pretty_after = False  # ne pas reformater pour ne pas casser la sélection
     else:
         sql_code = sql_textbox.get("1.0", "end-1c").strip()
-        do_pretty_after = True   # on reformate le buffer complet après exécution
+        do_pretty_after = True   # reformater le buffer complet après exécution
 
     if not sql_code:
         display_result(output_textbox, "(Nothing to execute.)")
@@ -57,13 +57,18 @@ def run_sql(sql_textbox, output_textbox):
             for idx, stmt in enumerate(statements, 1):
                 try:
                     cur.execute(stmt)
-                    if stmt.strip().lower().startswith("select"):
+
+                    if cur.description is not None:
+                        # La requête renvoie un jeu de résultats (SELECT, certains PRAGMA, etc.)
                         rows = cur.fetchall()
                         result = make_pretty_table(cur.description, rows)
                     else:
+                        # Requête sans résultat tabulaire (INSERT/UPDATE/DELETE/DDL…)
                         conn.commit()
                         result = "OK."
+
                     display_result(output_textbox, result)
+
                 except Exception as e:
                     display_result(output_textbox, f"Error in statement {idx}: {e}")
 
@@ -78,26 +83,30 @@ def run_sql(sql_textbox, output_textbox):
 
 
 
+
 def split_sql_statements(sql_code):
     """
-    Split SQL code into complete statements.
-    Uses sqlite3.complete_statement() to safely detect the end of each statement,
-    avoiding naive splitting on ';'. Handles multi-line statements correctly.
-    Args:
-        sql_code (str): SQL code, possibly containing multiple statements.
-
-    Returns:
-        list[str]: Complete SQL statements without surrounding whitespace.
+    Split SQL code into complete statements using sqlite3.complete_statement(),
+    works even when multiple statements share the same line (e.g. '...;INSERT ...').
     """
-    buffer = ""
     statements = []
+    buffer = ""
 
-    for line in sql_code.splitlines():
-        buffer += line + "\n"
+    for ch in sql_code:
+        buffer += ch
         if sqlite3.complete_statement(buffer):
-            statements.append(buffer.strip())
+            stmt = buffer.strip()
+            if stmt:
+                statements.append(stmt)
             buffer = ""
+
+    # S'il reste des miettes non vides (sans ';'), on les exécute aussi.
+    tail = buffer.strip()
+    if tail:
+        statements.append(tail)
+
     return statements
+
 
 
 def get_tables(output_textbox):
@@ -224,10 +233,11 @@ def pretty_print_sql(sql_textbox):
     # 1) Line breaks avant les mots-clés
     formatted_query = insert_linebreaks_before_keywords(raw_query)
 
-    # 2) Ligne vide après chaque instruction terminée par ';' (sans doubler)
-    #    - agit seulement quand le ';' est suivi d'un \n
-    #    - n'ajoute rien en fin de fichier si pas de \n après ';'
-    formatted_query = re.sub(r';[ \t]*\n(?!\n)', ';\n\n', formatted_query)
+    # 2) Ligne vide après chaque instruction + éventuels commentaires
+    #    - détecte un ';', puis des commentaires éventuels '-- ...'
+    #    - insère la ligne vide après ces commentaires
+    pattern = r'(;[^\n]*(?:\n--[^\n]*)*)(?=\n(?!\n))'
+    formatted_query = re.sub(pattern, r'\1\n', formatted_query)
 
     # 3) Capitalisation des mots-clés
     formatted_query = highlight_keywords(formatted_query)
@@ -237,7 +247,6 @@ def pretty_print_sql(sql_textbox):
     sql_textbox.insert("1.0", formatted_query)
     colorize_keywords(sql_textbox)
     return None
-
 
 
 
