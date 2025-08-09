@@ -209,6 +209,8 @@ __marimo__/
 
 Old/
 
+**/test*.py
+
 recent_db_files.txt
 recent_sql_files.txt
 

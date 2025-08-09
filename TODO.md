@@ -223,3 +223,122 @@ Tu as raison d’être furieux : entre circularité, imports impossibles et fonc
 - Des appels `print()` de debug sont présents un peu partout pour suivi temporaire :
   - ➤ **PRIORITÉ PROCHAINE SESSION** : Nettoyer tous les `print()` de debug et supprimer la fonction inutilisée de `sql_desk.py`.
 
+## Affichage et ergonomie
+
+- 🟨 Préserver la position du curseur et du défilement vertical dans `sql_textbox` après `pretty_print_sql()`  
+  (actuellement, le curseur et la vue reviennent en haut du code après le formatage).
+Nettoyage refresh_db_file_menu()
+
+## Refactor – `refresh_db_file_menu()`  
+
+### Situation actuelle  
+- La fonction `refresh_db_file_menu()` est définie dans `database_management.py`.  
+- Elle supprime (`db_menu.delete(0, 'end')`) puis recrée **entièrement** le menu des bases récentes, y compris les entrées **"Open Database..."** et **"Create New Database..."**.  
+- Les commandes de menu (`add_command(...)`) utilisent des `lambda` qui pointent vers :  
+  - des fonctions de gestion DB (`menu_open_database`, `create_new_database`, `choose_database`),  
+  - **et** des éléments d’UI (`db_menu`, `output_textbox`, `window`).  
+
+### Pourquoi ça pose problème  
+- `database_management.py` devrait gérer **la logique métier** (création/choix d’une base, gestion des fichiers récents), pas l’interface graphique.  
+- Le couplage fort entre UI (Tkinter `Menu`) et gestion DB rend le code moins clair, moins testable et plus difficile à maintenir.  
+- Chaque appel reconstruit tout le menu, y compris les commandes statiques (“Open…”, “Create…”), ce qui est fonctionnel mais inutilement répétitif.
+
+### Changements souhaitables  
+- Déplacer toute la partie **UI** (construction du menu Tkinter) dans `sql_desk.py` ou `GUI_functions.py`.  
+- Ne laisser dans `database_management.py` que :  
+  - la mise à jour de `global_vars.recent_db_files`,  
+  - la lecture/écriture des fichiers `.txt`.  
+- Reconstruire **dynamiquement** uniquement la partie “Bases récentes” du menu.  
+- Définir les commandes statiques (“Open…”, “Create…”) une seule fois au démarrage.
+
+### Comment y parvenir  
+1. Créer dans `GUI_functions.py` (ou `sql_desk.py`) une fonction `refresh_db_menu_ui(db_menu, recent_files, callbacks)` qui reconstruit l’UI du menu.  
+2. Laisser `database_management.py` se contenter de mettre à jour la liste des fichiers récents, puis appeler la fonction UI pour l’affichage.  
+3. Adapter `menu_open_database()` et `create_new_database()` pour qu’ils utilisent un **callback** de rafraîchissement UI au lieu de manipuler `db_menu` directement.  
+4. Tester l’ouverture, la création et la sélection de DB pour vérifier que la mise à jour du menu fonctionne toujours.
+
+
+
+### [Optionnel] Améliorer la création de nouvelles bases (`create_new_database`)
+
+**Situation actuelle**  
+- Utilisation de `simpledialog.askstring` pour demander uniquement un nom de fichier.  
+- La base est créée automatiquement dans le répertoire de travail courant.  
+- Pas de choix du dossier, risque de noms invalides, et possibilité d’écraser un fichier sans avertissement.
+
+**Problème**  
+- L’utilisateur ne peut pas choisir l’emplacement du fichier.  
+- Le nom de fichier peut contenir des caractères problématiques (espaces, accents, etc.).  
+- Aucun contrôle avant écrasement d’un fichier existant.
+
+**Amélioration souhaitée**  
+- Utiliser `filedialog.asksaveasfilename` pour permettre à l’utilisateur de choisir **à la fois** le nom et l’emplacement.  
+- Ajouter `.db` par défaut via `defaultextension`.  
+- Laisser Tkinter demander confirmation si le fichier existe déjà.
+
+**Comment y parvenir**  
+1. Remplacer `askstring` par `asksaveasfilename`.  
+2. Vérifier si `filepath` n’est pas vide (l’utilisateur peut annuler).  
+3. Créer le fichier à l’emplacement choisi.  
+4. Mettre à jour `global_vars.current_database` avec le chemin complet.  
+5. Ajouter ce chemin à `recent_db_files` comme dans `menu_open_database`.  
+
+**Exemple de code**  
+```python
+def create_new_database(output_textbox, window=None, db_menu=None):
+    filepath = filedialog.asksaveasfilename(
+        title="Create New Database",
+        defaultextension=".db",
+        filetypes=[("SQLite Database", "*.db"), ("All Files", "*.*")]
+    )
+    if filepath:
+        with open(filepath, "w"):
+            pass
+        global_vars.current_database = filepath
+        display_result(output_textbox, f"Created new database: {os.path.basename(filepath)}")  
+        global_vars.recent_db_files.insert(0, filepath)
+        global_vars.recent_db_files = list(dict.fromkeys(global_vars.recent_db_files))[:10]
+        save_recent_files("recent_db_files.txt", global_vars.recent_db_files)
+        if db_menu is not None:
+            refresh_db_file_menu(db_menu, output_textbox, window)```
+
+
+### Corriger le bouton "Quit"
+
+**Situation actuelle**  
+- Le bouton **Quit** de l’interface ne ferme pas l’application.  
+- Aucune action visible lorsque l’utilisateur clique dessus.
+
+**Problème**  
+- L’utilisateur s’attend à ce que **Quit** termine l’application immédiatement.  
+- Cela peut donner l’impression d’un bug ou d’une interface inachevée.
+
+**Amélioration souhaitée**  
+- Faire en sorte que **Quit** appelle `root.destroy()` (ou `window.destroy()` selon la variable utilisée pour l’instance Tk principale).  
+- Optionnel : demander confirmation avant de quitter (`messagebox.askokcancel`).
+
+**Comment y parvenir**  
+1. Localiser la création du bouton Quit dans le code principal (`sql_desk_main_ui.py`).  
+2. Remplacer l’action associée par une fonction fermant proprement la fenêtre principale.  
+3. (Optionnel) Ajouter un message de confirmation pour éviter les fermetures accidentelles.  
+
+**Exemple minimal**  
+```python
+from tkinter import messagebox
+
+def quit_app(window):
+    if messagebox.askokcancel("Quit", "Do you really want to exit?"):
+        window.destroy()```
+		
+
+### Gérer le retour à la ligne en tout début de texte dans `insert_linebreaks_before_keywords`
+- **Situation** : si le texte commence par un mot-clé (ex. `SELECT`), la fonction ajoute un `\n` au tout début, puis `.strip()` le supprime.  
+- **Problème** : ce comportement pourrait poser souci si la chaîne est réutilisée sans `.strip()`.  
+- **Solution envisagée** : empêcher l’insertion du `\n` si le mot-clé est au tout début (regex avec lookbehind négatif `(?<!^)` ou test d’index).  
+- **Statut** : ⏳ à faire.
+
+### Supprimer les espaces avant les retours de ligne dans `insert_linebreaks_before_keywords`
+- **Situation** : après insertion, un espace peut subsister avant `\n` (ex. `* ␠\nFROM`).  
+- **Solution** : suppression par  
+  ```python
+  re.sub(r"[ \t]+\n", "\n", formatted)

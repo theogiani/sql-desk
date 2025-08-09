@@ -7,16 +7,18 @@
 # - Tkinter widgets and filedialog for GUI interaction
 # - Relies on helper functions in: utils.py, database_management.py, global_vars.py
 
+
+
 import sqlite3
 import os
 import global_vars
 from utils import (
-    load_recent_files, save_recent_files, make_pretty_table,
-    highlight_keywords, colorize_keywords, insert_linebreaks_before_keywords,
-    update_recent_sql_files, display_result, clear_output
+    make_pretty_table, highlight_keywords, colorize_keywords,
+    insert_linebreaks_before_keywords, update_recent_sql_files, display_result
 )
-from tkinter import StringVar, OptionMenu, END, filedialog, messagebox, font
-from database_management import menu_open_database, create_new_database, choose_database
+from tkinter import filedialog, messagebox
+
+
 
 def run_query(sql_textbox, output_textbox):
     '''Executes a single query after pretty-printing'''
@@ -29,9 +31,6 @@ def run_query(sql_textbox, output_textbox):
     selection = None
     if sql_textbox.tag_ranges("sel"):
         selection = (sql_textbox.index("sel.first"), sql_textbox.index("sel.last"))
-
-    # Pretty print (modifie le contenu, donc fait perdre la sélection)
-    pretty_print_sql(sql_textbox)
 
     # Restaurer la sélection si elle existait
     if selection:
@@ -56,11 +55,14 @@ def run_query(sql_textbox, output_textbox):
             result = "Query executed successfully."
 
         conn.close()
+    
 
     except Exception as e:
         result = f"Error: {e}"
 
     display_result(output_textbox, result)
+    # Pretty print (modifie le contenu, donc fait perdre la sélection)
+    pretty_print_sql(sql_textbox)
     return None
 
 
@@ -149,7 +151,6 @@ def get_tables(output_textbox):
     return None
 
 
-
 def save_sql_code(sql_textbox, menu=None):
     '''Saves formatted SQL to file'''
     raw_sql = sql_textbox.get("1.0", "end-1c")
@@ -171,47 +172,35 @@ def save_sql_code(sql_textbox, menu=None):
 
         except Exception as e:
             print(f"Error saving file: {e}")
-
     return None
 
 
 def open_sql_code(sql_textbox, filepath=None, menu=None):
     '''Opens SQL file and inserts it into editor'''
     if not filepath:
-        print("Debug: Aucun filepath fourni, ouverture boîte de dialogue.")
         filepath = filedialog.askopenfilename(
             title="Open SQL File",
             filetypes=[("SQL files", "*.sql"), ("All files", "*.*")]
         )
     if not filepath:
-        print("Debug: Aucun fichier sélectionné, sortie de la fonction.")
         return None
 
     try:
-        print(f"Debug: Ouverture du fichier {filepath}")
         with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
         sql_textbox.delete("1.0", "end")
         sql_textbox.insert("1.0", content)
         pretty_print_sql(sql_textbox)
         update_recent_sql_files(filepath)
-        print(f"Debug: Liste recent_sql_files après mise à jour: {global_vars.recent_sql_files}")
-
+        
         if menu:
-            print("Debug: Rafraîchissement du menu SQL")
             # Rafraîchissement différé pour éviter problème d'affichage
             sql_textbox.after(50, lambda: refresh_sql_file_menu(menu, sql_textbox))
-        else:
-            print("Debug: Aucun menu SQL fourni, pas de rafraîchissement.")
-
+        
     except Exception as e:
-        print(f"Debug: Exception lors de l'ouverture du fichier : {e}")
+        # Voir plus tard comment gérer les messages d'erreur
         messagebox.showerror("Error", f"Failed to open file:\n{e}")
-
     return None
-
-
-
 
 
 def change_font_size(selection, target_font, font_type):
@@ -243,10 +232,6 @@ def refresh_sql_file_menu(menu, textbox):
     return None
 
 
-
-
-
-
 def pretty_print_sql(sql_textbox):
     '''Applies keyword capitalisation, linebreaks, and colouring'''
     raw_query = sql_textbox.get("1.0", "end-1c")
@@ -258,56 +243,6 @@ def pretty_print_sql(sql_textbox):
     return None
 
 
-##def run_sql_pretty(sql_textbox, output_textbox):
-##    '''Formats then runs SQL'''
-##    pretty_print_sql(sql_textbox)
-##    query = sql_textbox.get("1.0", "end-1c")
-##    run_sql(query, output_textbox)
-##    return None
-
-
-
-
-##def run_sql(sql_textbox, output_textbox):
-##    # Sauvegarder la sélection (si elle existe)
-##    selection = None
-##    if sql_textbox.tag_ranges("sel"):
-##        selection = (sql_textbox.index("sel.first"), sql_textbox.index("sel.last"))
-##
-##    # Appeler pretty_print_sql (attention, il modifie le texte et efface la sélection)
-##    pretty_print_sql(sql_textbox)
-##
-##    # Restaurer la sélection
-##    if selection:
-##        sql_textbox.tag_add("sel", selection[0], selection[1])
-##
-##    # Maintenant on récupère la sélection restaurée
-##    if sql_textbox.tag_ranges("sel"):
-##        query = sql_textbox.get("sel.first", "sel.last")
-##    else:
-##        query = sql_textbox.get("1.0", "end-1c")
-##
-##    # (reste de ta fonction inchangé)
-##    result = ''
-##    try:
-##        with sqlite3.connect(global_vars.current_database) as db:
-##            cursor = db.cursor()
-##            statements = [s.strip() for s in query.strip().split(';') if s.strip()]
-##            for statement in statements:
-##                if statement.lower().startswith("select"):
-##                    cursor.execute(statement)
-##                    rows = cursor.fetchall()
-##                    result += make_pretty_table(cursor.description, rows) + '\n'
-##                else:
-##                    cursor.execute(statement)
-##                    db.commit()
-##                    result += f"Query executed: {statement[:30]}...\n"
-##    except Exception as e:
-##        result = f"ERROR: {e}"
-##
-##    result = result.strip() + '\n\n'
-##    display_result(output_textbox, result)
-##    return None
 
 
 

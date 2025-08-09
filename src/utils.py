@@ -6,7 +6,6 @@ import os
 import re
 import global_vars
 from tkinter import Tk, END
-#from database_management import menu_open_database, create_new_database
 
 
 SQL_KEYWORDS = {
@@ -31,17 +30,8 @@ LINEBREAK_KEYWORDS = {
     "JOIN", "INNER JOIN", "LEFT JOIN", "CROSS JOIN", "NATURAL JOIN", "ON"
 }
 
-##def add_linebreaks(sql_code):
-##    formatted = sql_code
-##    for keyword in sorted(LINEBREAK_KEYWORDS, key=len, reverse=True):  # longest first
-##        pattern = rf"\b{re.escape(keyword)}\b"
-##        formatted = re.sub(pattern, rf"\n{keyword}", formatted, flags=re.IGNORECASE)
-##    # Nettoyage : supprime les \n en double ou les espaces inutiles
-##    formatted = re.sub(r"\n\s*", "\n", formatted)
-##    return formatted.strip()
-##
-
 SQL_KEYWORDS = SQL_KEYWORDS.union(LINEBREAK_KEYWORDS)
+
 
 
 def make_pretty_table(info, body):
@@ -69,7 +59,6 @@ def make_pretty_table(info, body):
     return result
 
 
-
 def save_recent_files(file_path, source_list):
     """
     Saves list of recent files to disk.
@@ -80,7 +69,6 @@ def save_recent_files(file_path, source_list):
                 f.write(line + '\n')
     except Exception as e:
         print(f"Error saving recent files to {file_path}: {e}")
-
     return None
 
 
@@ -123,13 +111,6 @@ def colorize_keywords(text_widget):
     return None
 
 
-##def insert_linebreaks_before_keywords(sql_code: str) -> str:
-##    """
-##    Inserts newlines before key SQL keywords.
-##    """
-##    pattern = r"(?<!\n)\b(" + "|".join(LINEBREAK_KEYWORDS) + r")\b"
-##    return re.sub(pattern, prepend_newline_to_keyword, sql_code, flags=re.IGNORECASE)
-##import re
 
 def insert_linebreaks_before_keywords(sql_code: str) -> str:
     """
@@ -141,26 +122,20 @@ def insert_linebreaks_before_keywords(sql_code: str) -> str:
         pattern = rf"\b{re.escape(keyword)}\b"
         formatted = re.sub(pattern, rf"\n{keyword}", formatted, flags=re.IGNORECASE)
     # Remove redundant newlines and whitespace
+    formatted = re.sub(r"[ \t]+\n", "\n", formatted)  # supprime l’espace avant le saut de ligne
     formatted = re.sub(r'\n\s*', '\n', formatted)
     return formatted.strip()
-
-
-def prepend_newline_to_keyword(match: re.Match) -> str:
-    """
-    Adds newline before a SQL keyword.
-    """
-    return f"\n{match.group(1)}"
 
 
 def on_closing(window: Tk):
     """
     Saves recent files and closes window.
     """
-    from utils import save_recent_files
     save_recent_files("recent_sql_files.txt", global_vars.recent_sql_files)
     save_recent_files("recent_db_files.txt", global_vars.recent_db_files)
     window.destroy()
     return None
+
 
 def update_recent_sql_files(filepath, max_items=10):
     if filepath in global_vars.recent_sql_files:
@@ -171,18 +146,9 @@ def update_recent_sql_files(filepath, max_items=10):
 
     # Sauvegarder la liste mise à jour
     save_recent_files("recent_sql_files.txt", global_vars.recent_sql_files)
+    return None
 
-##def update_recent_sql_files(filepath, max_items=10):
-##    """
-##    Adds file to recent list (deduplicated, capped).
-##    """
-##    if filepath in global_vars.recent_sql_files:
-##        global_vars.recent_sql_files.remove(filepath)
-##
-##    global_vars.recent_sql_files.insert(0, filepath)
-##    global_vars.recent_sql_files = global_vars.recent_sql_files[:max_items]
-##    return None
-
+    
 def load_recent_files(file_path, target_list, max_items=8):
     """
     Loads recent files into the target list.
@@ -197,7 +163,6 @@ def load_recent_files(file_path, target_list, max_items=8):
             target_list.extend(lines[:max_items])
     except Exception as e:
         print(f"Error loading recent files from {file_path}: {e}")
-
     return None
 
 
@@ -211,6 +176,7 @@ def clean_recent_db_files():
     save_recent_files("recent_db_files.txt", global_vars.recent_db_files)
     return None
 
+
 def clean_recent_sql_files():
     """
     Removes non-existing .sql files from recent_sql_files.
@@ -220,7 +186,6 @@ def clean_recent_sql_files():
     ]
     save_recent_files("recent_sql_files.txt", global_vars.recent_sql_files)
     return None
-
 
 
 def display_result(output_box, text):

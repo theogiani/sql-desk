@@ -13,7 +13,6 @@ def menu_open_database(output_textbox, window=None, db_menu=None):
     Opens a .db file and sets it as current database.
     Also updates the recent DBs menu immediately if db_menu is provided.
     """
-    print(f"ici menu_open_database, db_menu = {db_menu}, {output_textbox}, {window}")
     filepath = filedialog.askopenfilename(
         title="Open Database",
         filetypes=[("SQLite Database", "*.db"), ("All files", "*.*")]
@@ -53,7 +52,6 @@ def choose_database(value, *, output_textbox=None, window=None, db_menu=None):
     Sets current database, prints message, updates window title,
     updates recent DBs list, and refreshes the recent DB menu if provided.
     """
-    print("Ici choose menu value, db_menu", value, db_menu)
     if not os.path.exists(value):
         if output_textbox:
             display_result(output_textbox, f"File not found: {value}")
@@ -68,7 +66,7 @@ def choose_database(value, *, output_textbox=None, window=None, db_menu=None):
         name = os.path.basename(value)
         display_result(output_textbox, f"Database selected: {name}")  
     if window:
-        window.title(f"Python Database Tool – {value}")
+        window.title(f"SQL Desk – {value}")
 
     # Update recent DBs
     global_vars.recent_db_files.insert(0, value)
@@ -76,17 +74,12 @@ def choose_database(value, *, output_textbox=None, window=None, db_menu=None):
     save_recent_files("recent_db_files.txt", global_vars.recent_db_files)
 
     # Refresh the recent DB menu if the menu is provided
-    print("Ici refresh", db_menu)
-    if db_menu: #and output_textbox and window:
+    if db_menu is not None: #and output_textbox and window:
         refresh_db_file_menu(db_menu, output_textbox, window)
-
     return None
 
 
-# En bas de ??????
 def refresh_db_file_menu(db_menu, output_textbox, window=None):
-    from database_management import menu_open_database, create_new_database, choose_database
-
     db_menu.delete(0, 'end')
 
     db_menu.add_command(

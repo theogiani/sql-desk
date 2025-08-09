@@ -19,20 +19,23 @@
 
 
 from tkinter import *
-from tkinter import font, simpledialog, filedialog
+from tkinter import font#, simpledialog, filedialog
 from tkinter.scrolledtext import ScrolledText
 import os, global_vars
 
 from GUI_functions import (
-    run_query, get_tables, clear_output, save_sql_code,
+    run_query, get_tables, save_sql_code,
     open_sql_code, change_font_size, refresh_sql_file_menu,
      pretty_print_sql
 )
 
-from utils import (
-    load_recent_files, clean_recent_db_files, save_recent_files,
-    insert_linebreaks_before_keywords, clean_recent_sql_files, on_closing
-)
+###from utils import (
+##    load_recent_files, clear_output, clean_recent_db_files, save_recent_files,
+##    insert_linebreaks_before_keywords, clean_recent_sql_files, on_closing
+##)
+
+from utils import ( load_recent_files, clear_output,
+                    clean_recent_db_files, clean_recent_sql_files, on_closing)
 
 from database_management import (
     create_new_database, menu_open_database, refresh_db_file_menu
@@ -43,15 +46,6 @@ from database_management import (
 window = Tk()
 window.title('SQL Desk')
 window.configure(bg=global_vars.bg_main)
-
-
-
-def _debug_open_database(output_textbox, window, db_menu):
-    # fonction crée pour du degug DOIT DISPARAITRE
-    print(f"Ici la fonction _debug_open_database, {(output_textbox, window, db_menu)}")
-    print(f"[DEBUG] menu_open_database called with db_menu={db_menu}")
-    return menu_open_database(output_textbox, window, db_menu)
-
 
 
 # --- Load recent files ---
@@ -77,20 +71,6 @@ frame_logo.grid(row=0, column=1, sticky="ne")
 if euro_logo:
     Label(frame_logo, image=euro_logo, bg=global_vars.bg_main).grid(row=0, column=0, sticky="ne")
     
-
-
-##
-### Add recent databases from global_vars
-##for i, filename in enumerate(global_vars.recent_db_files, start=1):
-##    db_menu.add_command(
-##        label=f"{i}. {os.path.basename(filename)}",
-##        command=lambda f=filename: choose_database(f, output_textbox=output_textbox, window=window, db_menu=db_menu)
-##    )
-##
-##db_button.config(menu=db_menu)
-##db_button.grid(row=0, column=0, padx=10, pady=10, sticky="n")
-
-
 
 # --- Quit button ---
 button_quit = Button(frame_buttons, text="Quit", width=10, bg=global_vars.bg_button, fg=global_vars.text_colour,
@@ -164,39 +144,9 @@ output_font = font.Font(family="Courier", size=global_vars.font_size_output)
 output_textbox = ScrolledText(frame_output, width=75, height=20, background=global_vars.bg_textbox, font=output_font)
 output_textbox.grid(row=1, column=0, sticky="nsew")
 output_textbox.config(state='disabled')
-##
-### --- DB Menu (Open/Create + recent) ---
-##print("[DEBUG] Initialisation du bouton 'Database'...")
-##
-### Crée le bouton (vide pour l’instant)
-##db_button = Menubutton(frame_buttons, text="Database", bg=global_vars.bg_button, fg=global_vars.text_colour, relief=RAISED)
-##
-### Crée le menu et attache-le immédiatement au bouton
-##db_menu = Menu(db_button, tearoff=0)
-##db_button.config(menu=db_menu)
 
-### Entrée : Open Database
-##db_menu.add_command(
-##    label="Open Database...",
-##    command=lambda: menu_open_database(output_textbox, window, db_menu)
-##)
-##
-### Entrée : Create New Database
-##db_menu.add_command(
-##    label="Create New Database...",
-##    command=lambda: create_new_database(output_textbox, window, db_menu)
-##)
-##
-### Séparateur visuel
-##db_menu.add_separator()
-##
-### Ajoute les bases récentes
-##refresh_db_file_menu(db_menu, output_textbox, window)
-##clean_recent_db_files()
 
 # --- DB Menu (Open/Create + recent) ---
-print("[DEBUG] Initialisation du bouton 'Database'...")
-
 # Crée le bouton vide
 db_button = Menubutton(frame_buttons, text="Database", bg=global_vars.bg_button,
                        fg=global_vars.text_colour, relief=RAISED)
@@ -210,8 +160,7 @@ db_button.config(menu=db_menu)
 db_menu.add_command(
     label="Open Database...",
     command=lambda: (
-        menu_open_database(output_textbox, window, db_menu),
-        refresh_db_file_menu(db_menu, output_textbox, window)
+        menu_open_database(output_textbox, window, db_menu)
     )
 )
 
@@ -219,8 +168,7 @@ db_menu.add_command(
 db_menu.add_command(
     label="Create New Database...",
     command=lambda: (
-        create_new_database(output_textbox, window, db_menu),
-        refresh_db_file_menu(db_menu, output_textbox, window)
+        create_new_database(output_textbox, window, db_menu)
     )
 )
 
@@ -236,28 +184,8 @@ clean_recent_db_files()
 db_button.grid(row=0, column=0, padx=10, pady=10, sticky="n")
 
 
-print(f"initialisation de db_menu : {db_menu}")
-if db_menu.index("end") is not None:
-    for i in range(db_menu.index("end") + 1):
-        try:
-            label = db_menu.entrycget(i, 'label')
-            print(f"  [{i}] {label}")
-        except TclError:
-            print(f"  [{i}] <séparateur ou entrée non textuelle>")
-else:
-    print("  (Menu vide)")
-
-
-
-##db_button.config(menu=db_menu)
-##db_button.grid(row=0, column=0, padx=10, pady=10, sticky="n")
-##
-##
-##db_menu.add_separator()
-
-
-refresh_db_file_menu(db_menu, output_textbox, window)
-clean_recent_db_files()
+##refresh_db_file_menu(db_menu, output_textbox, window)
+##clean_recent_db_files()
 
 
 button_frame_out = Frame(frame_output, bg=global_vars.bg_frame)
