@@ -24,6 +24,23 @@ Liste des fonctionnalités prévues, bugs à corriger, et idées d'amélioration
 - [ ] Corriger le bouton **Quit**
 - [ ] Refactor – `refresh_db_file_menu()` : déplacer ce qui concerne les fonctions lambda dans `sql_desk.py`
 - [ ] Amélioration suggérée – Résumé d'exécution des requêtes SQL
+- [ ] ## Documentation / Mode d’emploi
+
+	### PRAGMA foreign_keys = ON;
+
+	SQLite n’active pas les contraintes d’intégrité référentielle par défaut.  
+	Dans SQL Desk, la commande suivante est exécutée automatiquement à chaque connexion pour s’assurer que les clés étrangères (y compris les clés composites) sont respectées :
+
+	```sql 	PRAGMA foreign_keys = ON;
+```
+	Sans cette commande, il est possible d’insérer dans Booking une activité qui n’existe 
+	pas dans Activity ou qui ne correspond pas au resortName indiqué. 
+	Cela peut fausser les résultats de requêtes et rompre la cohérence de la base.
+
+	Action : Mentionner clairement cette particularité dans le mode d’emploi, 
+	afin que les utilisateurs comprennent pourquoi l’application active systématiquement
+	cette option.
+
 
 #### Organisation des fichiers
 
@@ -246,8 +263,8 @@ def create_new_database(output_textbox, window=None, db_menu=None):
         global_vars.recent_db_files = list(dict.fromkeys(global_vars.recent_db_files))[:10]
         save_recent_files("recent_db_files.txt", global_vars.recent_db_files)
         if db_menu is not None:
-            refresh_db_file_menu(db_menu, output_textbox, window)```
-
+            refresh_db_file_menu(db_menu, output_textbox, window)
+```
 
 ### Corriger le bouton "Quit"
 
@@ -274,7 +291,8 @@ from tkinter import messagebox
 
 def quit_app(window):
     if messagebox.askokcancel("Quit", "Do you really want to exit?"):
-        window.destroy()```
+        window.destroy()
+```
 		
 
 ### Gérer le retour à la ligne en tout début de texte dans `insert_linebreaks_before_keywords`
@@ -286,8 +304,10 @@ def quit_app(window):
 ### Supprimer les espaces avant les retours de ligne dans `insert_linebreaks_before_keywords`
 - **Situation** : après insertion, un espace peut subsister avant `\n` (ex. `* \nFROM`).  
 - **Solution** : suppression par  
-  ```python
-  re.sub(r"[ \t]+\n", "\n", formatted)```
+```
+python
+  re.sub(r"[ \t]+\n", "\n", formatted)
+```
   
   
 ##  2025-08-09 – Avancées de la session
@@ -311,6 +331,34 @@ def quit_app(window):
    - Elle gèrera à la fois l’exécution d’une requête unique (ou portion sélectionnée dans l’éditeur)  
      et l’exécution d’un script multi-instructions séparées par `;`.
 	 
+## 2025-08-10 
+### — Ajout affichage du nombre de lignes affectées
+- **Contexte :** Affichage automatique dans la console après exécution d'une requête `INSERT`, `UPDATE` ou `DELETE`, indiquant combien de lignes ont été modifiées.  
+- **Objectif :** Donner un retour utilisateur immédiat sur l'impact d'une requête de modification.  
+- **Fichiers concernés :**  
+  - `sql_functions.py` (fonction `run_sql()` ou `run_query()`, selon implémentation actuelle)
+- **Détail technique :**
+  - Utilisation de `cursor.rowcount` pour récupérer le nombre de lignes affectées.
+  - Message ajouté à la fin de l'exécution, juste après la confirmation de succès.
+  
+###  Correction bug bouton quit
+
+- **Contexte :** Le bouton **Quit** arrêtait la boucle principale (`mainloop`) dans 
+la console, mais l’interface Tkinter restait ouverte et opérationnelle, permettant 
+encore d’ouvrir des bases et d’exécuter des requêtes.
+- **Cause :** Le bouton appelait `window.quit` au lieu de la procédure `on_closing()` 
+qui gère correctement la fermeture et la sauvegarde des fichiers récents.
+- **Solution :**
+  - Remplacement de `command=window.quit` par `command=lambda: on_closing(window)` 
+  dans la création du bouton Quit (`sql_desk.py`).
+  - Cette modification garantit que la fonction `on_closing()` est exécutée lors de 
+  l’appui sur le bouton, ce qui :
+    - Sauvegarde les fichiers récents (`recent_sql_files.txt` et `recent_db_files.txt`).
+    - Ferme proprement la fenêtre Tkinter avec `window.destroy()`.
+- **Fichiers concernés :**
+  - `sql_desk.py` (modification du bouton Quit)
+  - `utils.py` (fonction `on_closing()` déjà existante)
+
 	 
 ### Mise en forme & coloration des commentaires SQL
 - **Situation** : les commentaires `-- ...` (et plus tard `/* ... */`) ne sont pas colorés et subissent le pretty print (ex. mots uppercasés).
@@ -333,5 +381,3 @@ def quit_app(window):
 - **Exemple** :
 - **Remarque** : Le résumé serait affiché à la fin de l'output, sans interrompre les résultats intermédiaires.
 - **Statut** : À implémenter après stabilisation des fonctions multi-statements et du pretty-print.
-
-

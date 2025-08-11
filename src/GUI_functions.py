@@ -24,31 +24,40 @@ def run_sql(sql_textbox, output_textbox):
     """
     Execute the selected SQL (if any) or the whole editor content.
     Supports multiple statements (via sqlite3.complete_statement).
-    Pretty-print is applied after execution only when no selection is used.
+
+    Pretty-print is applied only when there is no selection.
+    This is deliberate: reformatting selected SQL could disrupt the user's
+    active editing (moving the caret, changing indentation, or altering
+    partially written code). When executing a selection, the SQL is run
+    exactly as written, without altering the text afterwards.
     """
+
     if not global_vars.current_database:
         display_result(output_textbox, "No database selected.")
         return None
 
-    # 1) Récupérer soit la sélection, soit tout le contenu
+    # 1) Retrieve either the selection or the whole buffer
     if sql_textbox.tag_ranges("sel"):
         sql_code = sql_textbox.get("sel.first", "sel.last").strip()
-        do_pretty_after = False  # ne pas reformater pour ne pas casser la sélection
+    #--------------------------------------------------------------
+    # a rebasculer sur False si le pretty print sur selection pose problème
+        do_pretty_after = True  # leave selection untouched
+    #--------------------------------------------------------------
     else:
         sql_code = sql_textbox.get("1.0", "end-1c").strip()
-        do_pretty_after = True   # reformater le buffer complet après exécution
+        do_pretty_after = True   # reformat the entire buffer afterwards
 
     if not sql_code:
         display_result(output_textbox, "(Nothing to execute.)")
         return None
 
-    # 2) Découper en statements complets
+    # 2) Split into complete SQL statements
     statements = split_sql_statements(sql_code)
     if not statements:
         display_result(output_textbox, "(No complete SQL statement found.)")
         return None
 
-    # 3) Exécuter chaque statement
+    # 3) Execute each statement
     try:
         with sqlite3.connect(global_vars.current_database) as conn:
             conn.execute("PRAGMA foreign_keys = ON;")
@@ -56,26 +65,37 @@ def run_sql(sql_textbox, output_textbox):
 
             for idx, stmt in enumerate(statements, 1):
                 try:
+                    before = conn.total_changes
                     cur.execute(stmt)
+                    is_select = (cur.description is not None)
 
-                    if cur.description is not None:
-                        # La requête renvoie un jeu de résultats (SELECT, certains PRAGMA, etc.)
+                    if is_select:
                         rows = cur.fetchall()
-                        result = make_pretty_table(cur.description, rows)
+                        headers = [d[0] for d in cur.description]
+                        result = make_pretty_table(rows, headers)
                     else:
-                        # Requête sans résultat tabulaire (INSERT/UPDATE/DELETE/DDL…)
-                        conn.commit()
-                        result = "OK."
+                        affected = conn.total_changes - before
+                        if affected < 0:
+                            affected = 0
+                        result = f"OK – {affected} row(s) affected."
 
                     display_result(output_textbox, result)
+                    display_result(output_textbox, "")  # blank line for readability
+                    try:
+                        output_textbox.see("end")
+                    except Exception:
+                        pass
 
                 except Exception as e:
-                    display_result(output_textbox, f"Error in statement {idx}: {e}")
+                    display_result(
+                        output_textbox,
+                        f"Error in statement {idx}: {e}"
+                    )
 
     except Exception as e:
         display_result(output_textbox, f"Connection error: {e}")
 
-    # 4) Pretty print uniquement si on n'avait PAS de sélection
+    # 4) Pretty print only when no selection was used
     if do_pretty_after:
         pretty_print_sql(sql_textbox)
 
@@ -246,6 +266,68 @@ def pretty_print_sql(sql_textbox):
     sql_textbox.delete("1.0", "end")
     sql_textbox.insert("1.0", formatted_query)
     colorize_keywords(sql_textbox)
+    return None
+
+
+##def refresh_db_file_menu_ui(db_menu, output_textbox, window=None):
+##    """
+##    Refreshes only the Database menu UI.
+##    Uses global_vars.recent_db_files for the list of recent databases.
+##    """
+##    import global_vars
+##    import os
+##    from database_management import menu_open_database, create_new_database, choose_database
+##
+##    # Clear menu
+##    db_menu.delete(0, "end")
+##
+##    # Static entries
+##    db_menu.add_command(
+##        label="Open Database...",
+##        command=lambda: menu_open_database(output_textbox, window, db_menu)
+##    )
+##    db_menu.add_command(
+##        label="Create New Database...",
+##        command=lambda: create_new_database(output_textbox, window, db_menu)
+##    )
+##    db_menu.add_separator()
+##
+##    # Dynamic list of recent databases
+##    for i, filename in enumerate(global_vars.recent_db_files, start=1):
+##        short = os.path.basename(filename)
+##        db_menu.add_command(
+##            label=f"{i}. {short}",
+##            command=lambda f=filename: choose_database(
+##                f,
+##                output_textbox=output_textbox,
+##                window=window,
+##                db_menu=db_menu
+##            )
+##        )
+##
+##    return None
+
+def refresh_db_file_menu(menu, output_textbox, window=None):
+    """
+    Refreshes only the 'recent databases' section of the Database menu.
+    Static entries ('Open Database...', 'Create New Database...') are handled
+    in sql_desk.py at menu creation time.
+    """
+    # Supprime uniquement les entrées dynamiques (après le séparateur)
+    menu.delete(3, 'end')  # indices: 0=Open, 1=Create, 2=separator
+
+    # Ajoute les fichiers récents
+    for i, filepath in enumerate(global_vars.recent_db_files, 1):
+        short_name = os.path.basename(filepath)
+        menu.add_command(
+            label=f"{i}. {short_name}",
+            command=lambda fp=filepath: choose_database(
+                fp,
+                output_textbox=output_textbox,
+                window=window,
+                db_menu=menu
+            )
+        )
     return None
 
 

@@ -26,14 +26,14 @@ import os, global_vars
 from GUI_functions import (
     run_sql, get_tables, save_sql_code,
     open_sql_code, change_font_size, refresh_sql_file_menu,
-    pretty_print_sql
+    pretty_print_sql, refresh_db_file_menu
 )
 
 from utils import (load_recent_files, clear_output,
                     clean_recent_db_files, clean_recent_sql_files, on_closing)
 
 from database_management import (
-    create_new_database, menu_open_database, refresh_db_file_menu
+    create_new_database, menu_open_database
 )
 
 
@@ -68,9 +68,18 @@ if euro_logo:
     
 
 # --- Quit button ---
-button_quit = Button(frame_buttons, text="Quit", width=10, bg=global_vars.bg_button, fg=global_vars.text_colour,
-                     command=window.quit)
+# Use the same close path as the window's [X] to ensure proper shutdown + saving recents
+button_quit = Button(
+    frame_buttons,
+    text="Quit",
+    width=10,
+    bg=global_vars.bg_button,
+    fg=global_vars.text_colour,
+    command=lambda: on_closing(window)   # <-- remplace window.quit
+)
 button_quit.grid(row=0, column=2, padx=5, pady=10, sticky="n")
+
+
 
 
 # --- SQL File Menu ---
@@ -179,8 +188,32 @@ clean_recent_db_files()
 db_button.grid(row=0, column=0, padx=10, pady=10, sticky="n")
 
 
+### --- DB Menu (Open/Create + recent) ---
+##db_button = Menubutton(frame_buttons, text="Database",
+##                       bg=global_vars.bg_button, fg=global_vars.text_colour, relief=RAISED)
+##db_menu = Menu(db_button, tearoff=0)
+##db_button.config(menu=db_menu)
+##
+### Entrées fixes
+##db_menu.add_command(
+##    label="Open Database...",
+##    command=lambda: menu_open_database(output_textbox, window, db_menu)
+##)
+##db_menu.add_command(
+##    label="Create New Database...",
+##    command=lambda: create_new_database(output_textbox, window, db_menu)
+##)
+##db_menu.add_separator()
+##
+### Fichiers récents
 ##refresh_db_file_menu(db_menu, output_textbox, window)
+##
+### Nettoie les doublons / fichiers manquants
 ##clean_recent_db_files()
+##
+### Place le bouton sur l’interface
+##db_button.grid(row=0, column=0, padx=10, pady=10, sticky="n")
+
 
 
 button_frame_out = Frame(frame_output, bg=global_vars.bg_frame)
