@@ -23,17 +23,19 @@ from tkinter import font#, simpledialog, filedialog
 from tkinter.scrolledtext import ScrolledText
 import os, global_vars
 
+
+
 from GUI_functions import (
     run_sql, get_tables, save_sql_code,
     open_sql_code, change_font_size, refresh_sql_file_menu,
-    pretty_print_sql, refresh_db_file_menu
+    pretty_print_sql, refresh_db_file_menu, open_and_refresh, create_and_refresh
 )
 
 from utils import (load_recent_files, clear_output,
                     clean_recent_db_files, clean_recent_sql_files, on_closing)
 
 from database_management import (
-    create_new_database, menu_open_database
+    create_new_database, choose_database, menu_open_database, close_active_connection
 )
 
 
@@ -75,7 +77,7 @@ button_quit = Button(
     width=10,
     bg=global_vars.bg_button,
     fg=global_vars.text_colour,
-    command=lambda: on_closing(window)   # <-- remplace window.quit
+    command=lambda: on_closing(window, pre_close=lambda: close_active_connection(True))
 )
 button_quit.grid(row=0, column=2, padx=5, pady=10, sticky="n")
 
@@ -160,28 +162,41 @@ db_menu = Menu(db_button, tearoff=0)
 db_button.config(menu=db_menu)
 
 
+
+
+
+
+
 # Entrée : Open Database
 db_menu.add_command(
     label="Open Database...",
-    command=lambda: (
-        menu_open_database(output_textbox, window, db_menu)
-    )
+    command=lambda: open_and_refresh(db_menu, output_textbox, window, choose_database, menu_open_database)
 )
+##db_menu.add_command(
+##    label="Open Database...",
+##    command=lambda: (
+##        menu_open_database(output_textbox, window, db_menu)
+##    )
+##)
 
 # Entrée : Create New Database
 db_menu.add_command(
     label="Create New Database...",
-    command=lambda: (
-        create_new_database(output_textbox, window, db_menu)
-    )
+    command=lambda: create_and_refresh(db_menu, output_textbox, window, choose_database, create_new_database)
 )
+##db_menu.add_command(
+##    label="Create New Database...",
+##    command=lambda: (
+##        create_new_database(output_textbox, window, db_menu)
+##    )
+##)
 
 
 # Séparateur
 db_menu.add_separator()
 
 # Ajoute les bases récentes
-refresh_db_file_menu(db_menu, output_textbox, window)
+refresh_db_file_menu(db_menu, output_textbox, window, select_database=choose_database)
 clean_recent_db_files()
 
 # Place le bouton sur l’interface

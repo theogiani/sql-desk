@@ -8,6 +8,7 @@ import global_vars
 from tkinter import Tk, END
 
 
+
 SQL_KEYWORDS = {
     "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "UPDATE", "SET",
     "DELETE", "CREATE", "TABLE", "DROP", "ALTER", "ADD", "RENAME",
@@ -127,14 +128,33 @@ def insert_linebreaks_before_keywords(sql_code: str) -> str:
     return formatted.strip()
 
 
-def on_closing(window: Tk):
+##def on_closing(window: Tk):
+##    """
+##    Save recent files, close the active database connection, and destroy the window.
+##    """
+##    save_recent_files("recent_sql_files.txt", global_vars.recent_sql_files)
+##    save_recent_files("recent_db_files.txt", global_vars.recent_db_files)
+##    close_active_connection(commit_changes=True)
+##    window.destroy()
+##    return None
+
+def on_closing(window, pre_close=None):
     """
-    Saves recent files and closes window.
+    Save recent files, run optional pre-close hook, and destroy the window.
     """
     save_recent_files("recent_sql_files.txt", global_vars.recent_sql_files)
     save_recent_files("recent_db_files.txt", global_vars.recent_db_files)
+
+    if callable(pre_close):
+        try:
+            pre_close()
+        except Exception:
+            pass
+
     window.destroy()
     return None
+
+
 
 
 def update_recent_sql_files(filepath, max_items=10):

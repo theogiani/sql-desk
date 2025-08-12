@@ -22,30 +22,23 @@ from tkinter import filedialog, messagebox
 
 def run_sql(sql_textbox, output_textbox):
     """
-    Execute the selected SQL (if any) or the whole editor content.
-    Supports multiple statements (via sqlite3.complete_statement).
-
-    Pretty-print is applied only when there is no selection.
-    This is deliberate: reformatting selected SQL could disrupt the user's
-    active editing (moving the caret, changing indentation, or altering
-    partially written code). When executing a selection, the SQL is run
-    exactly as written, without altering the text afterwards.
+    Execute the selected SQL (if any) or the whole editor content using the
+    single active SQLite connection (global_vars.current_connection).
+    Commits after non-SELECT statements; pretty-prints as before.
     """
-
-    if not global_vars.current_database:
-        display_result(output_textbox, "No database selected.")
+    # 0) Require an active connection (mono-connection model)
+    conn = global_vars.current_connection
+    if conn is None:
+        display_result(output_textbox, "No database connected. Use Database -> Open...")
         return None
 
     # 1) Retrieve either the selection or the whole buffer
     if sql_textbox.tag_ranges("sel"):
         sql_code = sql_textbox.get("sel.first", "sel.last").strip()
-    #--------------------------------------------------------------
-    # a rebasculer sur False si le pretty print sur selection pose problème
-        do_pretty_after = True  # leave selection untouched
-    #--------------------------------------------------------------
+        do_pretty_after = True
     else:
         sql_code = sql_textbox.get("1.0", "end-1c").strip()
-        do_pretty_after = True   # reformat the entire buffer afterwards
+        do_pretty_after = True
 
     if not sql_code:
         display_result(output_textbox, "(Nothing to execute.)")
@@ -57,49 +50,57 @@ def run_sql(sql_textbox, output_textbox):
         display_result(output_textbox, "(No complete SQL statement found.)")
         return None
 
-    # 3) Execute each statement
-    try:
-        with sqlite3.connect(global_vars.current_database) as conn:
-            conn.execute("PRAGMA foreign_keys = ON;")
-            cur = conn.cursor()
+    # 3) Execute each statement on the active connection
+    cur = conn.cursor()
+    for idx, stmt in enumerate(statements, 1):
+        try:
+            before = conn.total_changes
+            cur.execute(stmt)
+            is_select = (cur.description is not None)
 
-            for idx, stmt in enumerate(statements, 1):
-                try:
-                    before = conn.total_changes
-                    cur.execute(stmt)
-                    is_select = (cur.description is not None)
-
-                    if is_select:
-                        rows = cur.fetchall()
-                        headers = [d[0] for d in cur.description]
-                        result = make_pretty_table(rows, headers)
-                    else:
-                        affected = conn.total_changes - before
-                        if affected < 0:
-                            affected = 0
-                        result = f"OK – {affected} row(s) affected."
-
-                    display_result(output_textbox, result)
-                    display_result(output_textbox, "")  # blank line for readability
+            if is_select:
+                rows = cur.fetchall()
+                headers = [d[0] for d in cur.description]
+                # make_pretty_table expects (columns, rows)
+                result = make_pretty_table(headers, rows)
+            else:
+                affected = conn.total_changes - before
+                if affected < 0:
+                    affected = 0
+                # commit after write statements
+                if conn.in_transaction:
                     try:
-                        output_textbox.see("end")
+                        conn.commit()
                     except Exception:
-                        pass
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                        raise
+                result = f"OK - {affected} row(s) affected."
 
-                except Exception as e:
-                    display_result(
-                        output_textbox,
-                        f"Error in statement {idx}: {e}"
-                    )
+            display_result(output_textbox, result)
+            display_result(output_textbox, "")
+            try:
+                output_textbox.see("end")
+            except Exception:
+                pass
 
-    except Exception as e:
-        display_result(output_textbox, f"Connection error: {e}")
+        except Exception as e:
+            # rollback if the statement left a transaction open
+            if conn.in_transaction:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+            display_result(output_textbox, f"Error in statement {idx}: {e}")
 
-    # 4) Pretty print only when no selection was used
+    # 4) Pretty print only when requested
     if do_pretty_after:
         pretty_print_sql(sql_textbox)
 
     return None
+
 
 
 
@@ -130,38 +131,35 @@ def split_sql_statements(sql_code):
 
 
 def get_tables(output_textbox):
-    '''Displays table names and columns in current DB'''
-    db_path = global_vars.current_database
-    output_textbox.config(state="normal")
-
-    if not db_path:
-        display_result(output_textbox, "No database selected.")
+    """Display table names and columns from the current DB using the active connection."""
+    conn = global_vars.current_connection
+    if conn is None:
+        display_result(output_textbox, "No database connected.")
         return None
 
     try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables = [row[0] for row in cursor.fetchall()]
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
+        tables = [row[0] for row in cur.fetchall()]
 
         if tables:
             lines = ["Tables in current database:"]
             for table in tables:
-                cursor.execute(f"PRAGMA table_info({table});")
-                columns = [row[1] for row in cursor.fetchall()]
-                col_list = ", ".join(columns)
-                lines.append(f"• {table} ({col_list})")
+                # Escape single quotes in table name for PRAGMA
+                safe = table.replace("'", "''")
+                cur.execute(f"PRAGMA table_info('{safe}');")
+                cols = [row[1] for row in cur.fetchall()]
+                col_list = ", ".join(cols) if cols else "(no columns)"
+                lines.append(f"- {table} ({col_list})")
             result = "\n".join(lines)
         else:
             result = "No tables found in the current database."
-
-        conn.close()
-
     except Exception as e:
         result = f"Error retrieving tables:\n{e}"
 
     display_result(output_textbox, result)
     return None
+
 
 
 def save_sql_code(sql_textbox, menu=None):
@@ -269,66 +267,52 @@ def pretty_print_sql(sql_textbox):
     return None
 
 
-##def refresh_db_file_menu_ui(db_menu, output_textbox, window=None):
-##    """
-##    Refreshes only the Database menu UI.
-##    Uses global_vars.recent_db_files for the list of recent databases.
-##    """
-##    import global_vars
-##    import os
-##    from database_management import menu_open_database, create_new_database, choose_database
-##
-##    # Clear menu
-##    db_menu.delete(0, "end")
-##
-##    # Static entries
-##    db_menu.add_command(
-##        label="Open Database...",
-##        command=lambda: menu_open_database(output_textbox, window, db_menu)
-##    )
-##    db_menu.add_command(
-##        label="Create New Database...",
-##        command=lambda: create_new_database(output_textbox, window, db_menu)
-##    )
-##    db_menu.add_separator()
-##
-##    # Dynamic list of recent databases
-##    for i, filename in enumerate(global_vars.recent_db_files, start=1):
-##        short = os.path.basename(filename)
-##        db_menu.add_command(
-##            label=f"{i}. {short}",
-##            command=lambda f=filename: choose_database(
-##                f,
-##                output_textbox=output_textbox,
-##                window=window,
-##                db_menu=db_menu
-##            )
-##        )
-##
-##    return None
 
-def refresh_db_file_menu(menu, output_textbox, window=None):
-    """
-    Refreshes only the 'recent databases' section of the Database menu.
-    Static entries ('Open Database...', 'Create New Database...') are handled
-    in sql_desk.py at menu creation time.
-    """
-    # Supprime uniquement les entrées dynamiques (après le séparateur)
-    menu.delete(3, 'end')  # indices: 0=Open, 1=Create, 2=separator
 
-    # Ajoute les fichiers récents
+# --- dans GUI_functions.py ---
+
+def refresh_db_file_menu(menu, output_textbox, window=None, *, select_database):
+    """
+    Rebuild only the dynamic 'Recent databases' section.
+    `select_database` is a callable (e.g. database_management.choose_database).
+    """
+    import os
+    import global_vars
+
+    menu.delete(3, 'end')  # 0=Open, 1=Create, 2=separator
     for i, filepath in enumerate(global_vars.recent_db_files, 1):
-        short_name = os.path.basename(filepath)
+        short = os.path.basename(filepath)
         menu.add_command(
-            label=f"{i}. {short_name}",
-            command=lambda fp=filepath: choose_database(
-                fp,
-                output_textbox=output_textbox,
-                window=window,
-                db_menu=menu
+            label=f"{i}. {short}",
+            command=lambda fp=filepath: choose_recent_db(
+                fp, menu, output_textbox, window, select_database
             )
         )
     return None
+
+
+# =========================
+# WRAPPERS (GUI callbacks)
+# =========================
+
+def choose_recent_db(filepath, menu, output_textbox, window, select_database):
+    """Open the selected recent DB, then refresh the submenu."""
+    select_database(filepath, output_textbox=output_textbox, window=window, db_menu=None)
+    refresh_db_file_menu(menu, output_textbox, window, select_database=select_database)
+    return None
+
+def open_and_refresh(menu, output_textbox, window, select_database, open_db_func):
+    """Open DB via dialog, then refresh 'Recent'."""
+    open_db_func(output_textbox, window, db_menu=None)
+    refresh_db_file_menu(menu, output_textbox, window, select_database=select_database)
+    return None
+
+def create_and_refresh(menu, output_textbox, window, select_database, create_db_func):
+    """Create DB, then refresh 'Recent'."""
+    create_db_func(output_textbox, window, db_menu=None)
+    refresh_db_file_menu(menu, output_textbox, window, select_database=select_database)
+    return None
+
 
 
 

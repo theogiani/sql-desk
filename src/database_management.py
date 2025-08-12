@@ -2,12 +2,13 @@
 # Database creation, opening, and selection utilities for SQL Desk.
 # Author: Théo Giani (2025)
 
-import os
+import os, sqlite3
+
 from tkinter import filedialog, simpledialog
 
 import global_vars
 from utils import save_recent_files, display_result
-from GUI_functions import refresh_db_file_menu
+#from GUI_functions import refresh_db_file_menu
 
 
 
@@ -31,112 +32,137 @@ def menu_open_database(output_textbox, window=None, db_menu=None):
     return None
 
 
+##def create_new_database(output_textbox, window=None, db_menu=None):
+##    """
+##    Prompt the user for a new database name and create the corresponding
+##    '.db' file in the working directory.
+##    """
+##    name = simpledialog.askstring(
+##        "New Database", "Enter name for new database (without .db):"
+##    )
+##    if name:
+##        filename = f"{name}.db"
+##        with open(filename, "w"):
+##            # Touch the file to create an empty SQLite container.
+##            # The file will be initialised by sqlite3 on first connection.
+##            pass
+##
+##        global_vars.current_database = filename
+##        display_result(output_textbox, f"Created new database: {filename}")
+##
+##        # Add to the recent DB list (deduplicated and trimmed to 10 items).
+##        recent = global_vars.recent_db_files
+##        recent.insert(0, filename)
+##        recent = list(dict.fromkeys(recent))[:10]
+##        global_vars.recent_db_files = recent
+##        save_recent_files("recent_db_files.txt", recent)
+##
+##        # Optionally refresh the menu in the UI.
+##        if db_menu is not None:
+##            refresh_db_file_menu(db_menu, output_textbox, window)
+##
+##    return None
+
+
 def create_new_database(output_textbox, window=None, db_menu=None):
     """
-    Prompt the user for a new database name and create the corresponding
-    '.db' file in the working directory.
+    Prompt for a new database name, create the .db file, then select and open it.
+    No GUI refresh here; the GUI will refresh the menu after calling this.
     """
     name = simpledialog.askstring(
         "New Database", "Enter name for new database (without .db):"
     )
-    if name:
-        filename = f"{name}.db"
-        with open(filename, "w"):
-            # Touch the file to create an empty SQLite container.
-            # The file will be initialised by sqlite3 on first connection.
-            pass
+    if not name:
+        return None
 
-        global_vars.current_database = filename
-        display_result(output_textbox, f"Created new database: {filename}")
+    filename = f"{name}.db"
+    with open(filename, "w"):
+        # Touch the file; sqlite will initialize it on first connection.
+        pass
 
-        # Add to the recent DB list (deduplicated and trimmed to 10 items).
-        recent = global_vars.recent_db_files
-        recent.insert(0, filename)
-        recent = list(dict.fromkeys(recent))[:10]
-        global_vars.recent_db_files = recent
-        save_recent_files("recent_db_files.txt", recent)
-
-        # Optionally refresh the menu in the UI.
-        if db_menu is not None:
-            refresh_db_file_menu(db_menu, output_textbox, window)
-
+    # Open immediately via the single-connection flow.
+    # choose_database will:
+    # - close any existing connection,
+    # - open the new one,
+    # - set global_vars.current_database/current_connection,
+    # - update recent_db_files and save them,
+    # - update the window title (if provided).
+    choose_database(
+        filename,
+        output_textbox=output_textbox,
+        window=window,
+        db_menu=None  # GUI will refresh the menu afterwards
+    )
     return None
+
 
 
 def choose_database(value, *, output_textbox=None, window=None, db_menu=None):
     """
-    Select an existing database file, update window title, notify the user,
-    and update the recent database list. If a menu is provided, its 'Recent
-    Databases' section is refreshed as well.
+    Close the current connection, open a new one to the selected database,
+    update the UI and the recent databases list.
     """
     if not os.path.exists(value):
         if output_textbox:
             display_result(output_textbox, f"File not found: {value}")
         if value in global_vars.recent_db_files:
             global_vars.recent_db_files.remove(value)
-            save_recent_files(
-                "recent_db_files.txt", global_vars.recent_db_files
-            )
+            save_recent_files("recent_db_files.txt", global_vars.recent_db_files)
         return None
 
+    close_active_connection(commit_changes=True)
+
+    conn = sqlite3.connect(value)
+    try:
+        conn.execute("PRAGMA foreign_keys = ON")
+    except Exception:
+        pass
+    global_vars.current_connection = conn
     global_vars.current_database = value
 
     if output_textbox:
         name = os.path.basename(value)
         display_result(output_textbox, f"Database selected: {name}")
     if window:
-        window.title(f"SQL Desk – {value}")
+        window.title(f"SQL Desk - {value}")
 
-    # Update the recent DB list (deduplicated and trimmed to 10 items).
-    recent = global_vars.recent_db_files
-    recent.insert(0, value)
-    recent = list(dict.fromkeys(recent))[:10]
-    global_vars.recent_db_files = recent
-    save_recent_files("recent_db_files.txt", recent)
+    add_recent_db_file(value)
 
-    # Optionally refresh the 'Recent Databases' menu section.
-    if db_menu is not None:
-        refresh_db_file_menu(db_menu, output_textbox, window)
+##    if db_menu is not None:
+##        refresh_db_file_menu(db_menu, output_textbox, window)
 
     return None
 
 
-##def refresh_db_file_menu(db_menu, output_textbox, window=None):
-##    """
-##    Rebuild the Database menu, including static entries and the list of recent
-##    databases. Note: this function currently wires UI callbacks (lambdas) and
-##    will be refactored to keep UI concerns in sql_desk.py.
-##    """
-##    db_menu.delete(0, "end")
-##
-##    db_menu.add_command(
-##        label="Open Database...",
-##        command=lambda: menu_open_database(
-##            output_textbox, window, db_menu
-##        ),
-##    )
-##    db_menu.add_command(
-##        label="Create New Database...",
-##        command=lambda: create_new_database(
-##            output_textbox, window, db_menu
-##        ),
-##    )
-##    db_menu.add_separator()
-##
-##    for i, filename in enumerate(global_vars.recent_db_files, start=1):
-##        short = os.path.basename(filename)
-##        db_menu.add_command(
-##            label=f"{i}. {short}",
-##            command=lambda filename=filename: choose_database(
-##                filename,
-##                output_textbox=output_textbox,
-##                window=window,
-##                db_menu=db_menu,
-##            ),
-##        )
-##    return None
 
-# --- Recent DB files logic (no UI here) ---
+def close_active_connection(commit_changes=True):
+    """Ferme proprement la connexion unique si elle existe."""
+    conn = global_vars.current_connection
+    if not conn:
+        return None
+    try:
+        if getattr(conn, "in_transaction", False):
+            if commit_changes:
+                try:
+                    conn.commit()
+                except Exception:
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+            else:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        global_vars.current_connection = None
+    return None
+
 
 def add_recent_db_file(filename: str):
     """
