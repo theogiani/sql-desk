@@ -245,26 +245,71 @@ def refresh_sql_file_menu(menu, textbox):
 
 def pretty_print_sql(sql_textbox):
     '''Applies keyword capitalisation, linebreaks, and colouring'''
-    import re  # local import pour éviter d'ajouter d'import en haut
+    import re  # local import pour eviter d'ajouter d'import en haut
+
+    # --- NEW: save cursor/selection/scroll state ---
+    insert_idx = sql_textbox.index("insert")
+    try:
+        sel_start = sql_textbox.index("sel.first")
+        sel_end   = sql_textbox.index("sel.last")
+        had_sel = True
+    except Exception:
+        had_sel = False
+        sel_start = sel_end = None
+    top_frac = sql_textbox.yview()[0]
+    try:
+        x_frac = sql_textbox.xview()[0]
+    except Exception:
+        x_frac = 0.0
+
     raw_query = sql_textbox.get("1.0", "end-1c")
 
-    # 1) Line breaks avant les mots-clés
+    # 1) Line breaks avant les mots-cles
     formatted_query = insert_linebreaks_before_keywords(raw_query)
 
-    # 2) Ligne vide après chaque instruction + éventuels commentaires
-    #    - détecte un ';', puis des commentaires éventuels '-- ...'
-    #    - insère la ligne vide après ces commentaires
+    # 2) Ligne vide apres chaque instruction + eventuels commentaires
+    #    - detecte un ';', puis des commentaires eventuels '-- ...'
+    #    - insere la ligne vide apres ces commentaires
     pattern = r'(;[^\n]*(?:\n--[^\n]*)*)(?=\n(?!\n))'
     formatted_query = re.sub(pattern, r'\1\n', formatted_query)
 
-    # 3) Capitalisation des mots-clés
+    # 3) Capitalisation des mots-cles
     formatted_query = highlight_keywords(formatted_query)
 
-    # 4) Injecter + recoloriser
+    # (optionnel) marquer une separatrice d'undo pour que tout soit une seule action
+    try:
+        sql_textbox.edit_separator()
+    except Exception:
+        pass
+
+    # 4) Injecter + recoloriser (ta logique d'origine)
     sql_textbox.delete("1.0", "end")
     sql_textbox.insert("1.0", formatted_query)
     colorize_keywords(sql_textbox)
+
+    # --- NEW: restore cursor/selection/scroll state ---
+    sql_textbox.mark_set("insert", insert_idx)
+    if had_sel:
+        sql_textbox.tag_remove("sel", "1.0", "end")
+        sql_textbox.tag_add("sel", sel_start, sel_end)
+    # d'abord le viewport, puis s'assurer que le curseur est visible
+    sql_textbox.yview_moveto(top_frac)
+    try:
+        sql_textbox.xview_moveto(x_frac)
+    except Exception:
+        pass
+    sql_textbox.see("insert")
+    sql_textbox.focus_set()
+
+    # (optionnel) separatrice d'undo apres
+    try:
+        sql_textbox.edit_separator()
+    except Exception:
+        pass
+
     return None
+
+
 
 
 

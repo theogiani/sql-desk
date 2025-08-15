@@ -38,6 +38,8 @@ from database_management import (
     create_new_database, choose_database, menu_open_database, close_active_connection
 )
 
+from tkinter import Button
+
 
 # --- Main window setup ---
 window = Tk()
@@ -142,6 +144,8 @@ OptionMenu(button_frame, sql_font_size_var, *[str(size) for size in range(8, 25,
            command=lambda sel: change_font_size(sel, sql_font, "sql")).pack(side=LEFT, padx=10)
 frame_query.grid_rowconfigure(1, weight=1)
 frame_query.grid_columnconfigure(0, weight=1)
+
+
 
 
 # --- Output Frame ---

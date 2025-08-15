@@ -358,8 +358,79 @@ qui gère correctement la fermeture et la sauvegarde des fichiers récents.
 - **Fichiers concernés :**
   - `sql_desk.py` (modification du bouton Quit)
   - `utils.py` (fonction `on_closing()` déjà existante)
+  
+  ### 2025-08-10 — Refactor refresh_db_file_menu (Database menu)
+- **But** : Séparer la logique UI de la logique métier pour le menu Database, tout en évitant de dupliquer les commandes statiques ("Open...", "Create...").
+- **Changements** :
+  1. Déplacé `refresh_db_file_menu()` de `database_management.py` vers `GUI_functions.py`.
+  2. Conserver dans `sql_desk.py` la création initiale du bouton/menu Database avec les commandes statiques (`Open Database...`, `Create New Database...`) comme pour le menu SQL File.
+  3. Adapté `refresh_db_file_menu()` pour ne rafraîchir que les entrées dynamiques (bases récentes), en supprimant uniquement les éléments après le séparateur (`menu.delete(3, 'end')`).
+  4. Mis à jour `menu_open_database()` et `create_new_database()` pour appeler la nouvelle fonction `refresh_db_file_menu()` depuis `GUI_functions.py`.
+- **Note technique** :
+  - Choix de l’**option 2** pour l’import : `database_management.py` importe désormais `refresh_db_file_menu` depuis `GUI_functions.py`. Cela crée un import croisé latent mais fonctionnel, à surveiller en cas de refactorisation ultérieure.
+- **Résultat** : le menu Database fonctionne comme avant, mais la partie UI est centralisée, et seules les entrées dynamiques sont reconstruites lors du refresh.
 
-	 
+ ###2025-08-12** — **Refactor Quit & connection handling, DB creation flow** ✅  
+- **Bouton Quit** : ferme désormais proprement toutes les connexions SQLite ouvertes avant de quitter l’application.  
+- **`run_sql()`** : supprime la création systématique d’une nouvelle connexion, réutilise `global_vars.current_connection` pour assurer une seule connexion persistante par session.  
+- **`create_new_database()`** :  
+  - supprime l’appel direct à `refresh_db_file_menu()` (rafraîchissement du menu désormais géré par le GUI après création).  
+  - ouvre immédiatement la nouvelle base via `choose_database()` afin d’appliquer la logique unique de connexion et d’initialisation.  
+- **Compatibilité vérifiée** entre `database_management.py` et `GUI_functions.py` après refactorisation.  
+- **Correction d’un bug** dans l’appel à `make_pretty_table()` (ordre des arguments `headers, rows`) qui provoquait des erreurs `object of type 'int' has no len()` sur certains `SELECT`.  
+- **Nettoyage des commentaires** pour éviter tout caractère UTF-8 non ASCII.
+
+
+ ###2025-08-13** Bug : Pretty Print modifie les commentaires SQL
+
+- **Description** : La fonction `pretty_print_sql()` applique ses transformations même à l'intérieur des commentaires (`-- ...`), par exemple en mettant un retour à la ligne après un mot-clé SQL détecté dans un commentaire.
+- **Impact** : Les commentaires peuvent être déformés ou fragmentés (ex. `-- Schema based\nON the exercise ...`).
+- **Proposition de correction** :
+  - Adapter la fonction pour ignorer toute ligne commençant par `--` (après suppression des espaces initiaux).
+  - Même logique à envisager pour les commentaires multilignes `/* ... */`.
+- **Priorité** : Moyenne (impact visuel uniquement, pas d’erreur SQL).
+- **Statut** : À faire.
+
+### Bug : en-têtes tronquées à la 1re lettre
+
+- **Date** : 13/08/2025
+- **Description** : Les noms de colonnes s’affichaient réduits à leur première lettre (`a, n, g, c`…), rendant les tableaux illisibles.
+- **Cause** : `make_pretty_table()` utilisait `[col[0] for col in info]` même quand `info` était déjà une liste de noms de colonnes (`list[str]`), transformant chaque nom en sa première lettre.
+- **Remède** : Ajout d’un test `isinstance(info[0], str)` pour détecter et traiter directement le cas `list[str]`.
+- **Historique** : Comportement apparu soudainement après refactor (probablement changement dans la façon de passer `info` à la fonction).
+- **Statut** : Corrigé aujourd’hui.
+
+
+## Preserve caret and scroll in `pretty_print_sql` ✅
+
+**Context.** Running `pretty_print_sql()` reformatted the SQL but annoyingly reset the caret (cursor) and viewport to the top.
+
+**What we changed (how it works).**
+- **Save state** before formatting:
+  - caret index: `insert_idx = sql_textbox.index("insert")`
+  - (optional) selection: try `sel.first` / `sel.last`
+  - vertical scroll: `top_frac = sql_textbox.yview()[0]`
+  - horizontal scroll (if enabled): `x_frac = sql_textbox.xview()[0]`
+- **Format** the text as before (line breaks, blank line after `;` + optional `--` comments, keyword capitalisation).
+- **Atomic undo**: call `sql_textbox.edit_separator()` just before and just after the replacement so the whole format is one undo step.
+- **Replace** buffer: `delete("1.0","end")` → `insert("1.0", formatted_query)` → re-run `colorize_keywords(sql_textbox)`.
+- **Restore state** after formatting:
+  - caret: `mark_set("insert", insert_idx)`
+  - selection (if any): clear + `tag_add("sel", sel_start, sel_end)`
+  - scroll: `yview_moveto(top_frac)` then (if used) `xview_moveto(x_frac)`
+  - ensure visibility: `see("insert")` and optionally `focus_set()`
+
+**Order matters.** Restore **viewport first**, then make sure the caret is visible (`see("insert")`). This avoids unexpected recentering.
+
+**Notes.**
+- Behaviour is **idempotent**: re-running the formatter immediately should not change the buffer again.
+- Minor caret shifts can occur if the transformer inserts/removes characters **before** the caret.  
+  - *Optional refinement (not implemented):* a “cursor sentinel” (temporary marker string inserted at the caret, then removed post-format) pins the caret to the exact logical spot if we ever need pixel-perfect stability.
+
+**Touched function.** `pretty_print_sql(sql_textbox)` (no signature change; no external side effects).
+
+
+ 
 ### Mise en forme & coloration des commentaires SQL
 - **Situation** : les commentaires `-- ...` (et plus tard `/* ... */`) ne sont pas colorés et subissent le pretty print (ex. mots uppercasés).
 - **Problème** : le formatter modifie le contenu des commentaires (lisibilité, sens altéré).

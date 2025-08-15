@@ -42,22 +42,33 @@ def make_pretty_table(info, body):
     if not info:
         return "\n| (No data returned) |\n"
 
-    headings = [col[0] for col in info]
+    # FIX: si info est déjà une liste de noms (str), la prendre telle quelle ;
+    # sinon (tuples type cursor.description), prendre l'index 0.
+    if isinstance(info[0], str):
+        headings = list(info)
+    else:
+        headings = [col[0] for col in info]
+
     num_cols = len(headings)
     column_widths = [len(h) for h in headings]
 
     for row in body:
         for i in range(num_cols):
-            column_widths[i] = max(column_widths[i], len(str(row[i])))
+            val = "" if row[i] is None else str(row[i])
+            column_widths[i] = max(column_widths[i], len(val))
 
     result = '\n'
     result += '| ' + ' | '.join(f'{headings[i]:<{column_widths[i]}}' for i in range(num_cols)) + ' |\n'
     result += '|-' + '-|-'.join('-' * column_widths[i] for i in range(num_cols)) + '-|\n'
 
     for row in body:
-        result += '| ' + ' | '.join(f'{str(row[i]):<{column_widths[i]}}' for i in range(num_cols)) + ' |\n'
+        result += '| ' + ' | '.join(
+            f'{("" if row[i] is None else str(row[i])):<{column_widths[i]}}' for i in range(num_cols)
+        ) + ' |\n'
 
     return result
+
+
 
 
 def save_recent_files(file_path, source_list):
