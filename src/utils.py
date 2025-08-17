@@ -218,14 +218,36 @@ def clean_recent_sql_files():
     save_recent_files("recent_sql_files.txt", global_vars.recent_sql_files)
     return None
 
+##
+##def display_result(output_box, text):
+##    '''Displays result text in output area'''
+##    output_box.config(state='normal')
+##    output_box.insert(END, text.rstrip() + "\n\n")
+##    output_box.see(END)
+##    output_box.config(state='disabled')
+##    return None
 
-def display_result(output_box, text):
-    '''Displays result text in output area'''
+
+def display_result(output_box, text=None, chunks=None):
+    '''Displays plain or styled result text in output area'''
     output_box.config(state='normal')
-    output_box.insert(END, text.rstrip() + "\n\n")
-    output_box.see(END)
+
+    if chunks is not None:
+        # styled mode: chunks is a list of (string, tagname_or_None)
+        for s, tag in chunks:
+            if tag:
+                output_box.insert("end", s, (tag,))
+            else:
+                output_box.insert("end", s)
+        output_box.insert("end", "\n\n")
+    elif text is not None:
+        # plain mode: original behaviour
+        output_box.insert("end", text.rstrip() + "\n\n")
+
+    output_box.see("end")
     output_box.config(state='disabled')
     return None
+
 
 
 def clear_output(output_box):

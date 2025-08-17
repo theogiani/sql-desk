@@ -429,6 +429,13 @@ qui gère correctement la fermeture et la sauvegarde des fichiers récents.
 
 **Touched function.** `pretty_print_sql(sql_textbox)` (no signature change; no external side effects).
 
+### ✅  **2025-08-17**  
+  • Improved `get_tables()`: primary keys displayed in red, foreign keys marked with `#`.  
+  • Added `tag_config` in `sql_desk.py` to handle text styles (PK red, FK hash, etc.).  
+  • Updated `display_result()` in `utils.py` to accept both plain text and tagged text; 
+     ensured backward compatibility with all existing calls.  
+  • Preserved behaviour of appending output without clearing the previous content.  
+  • Successfully tested with SkillUp database: PKs shown in red, FKs marked with `#`.  
 
  
 ### Mise en forme & coloration des commentaires SQL

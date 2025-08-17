@@ -130,8 +130,39 @@ def split_sql_statements(sql_code):
 
 
 
+##def get_tables(output_textbox):
+##    """Display table names and columns from the current DB using the active connection."""
+##    conn = global_vars.current_connection
+##    if conn is None:
+##        display_result(output_textbox, "No database connected.")
+##        return None
+##
+##    try:
+##        cur = conn.cursor()
+##        cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
+##        tables = [row[0] for row in cur.fetchall()]
+##
+##        if tables:
+##            lines = ["Tables in current database:"]
+##            for table in tables:
+##                # Escape single quotes in table name for PRAGMA
+##                safe = table.replace("'", "''")
+##                cur.execute(f"PRAGMA table_info('{safe}');")
+##                cols = [row[1] for row in cur.fetchall()]
+##                col_list = ", ".join(cols) if cols else "(no columns)"
+##                lines.append(f"- {table} ({col_list})")
+##            result = "\n".join(lines)
+##        else:
+##            result = "No tables found in the current database."
+##    except Exception as e:
+##        result = f"Error retrieving tables:\n{e}"
+##
+##    display_result(output_textbox, result)
+##    return None
+
+
 def get_tables(output_textbox):
-    """Display table names and columns from the current DB using the active connection."""
+    """Display table names and columns with PK (red) and FK (#) marking."""
     conn = global_vars.current_connection
     if conn is None:
         display_result(output_textbox, "No database connected.")
@@ -139,27 +170,57 @@ def get_tables(output_textbox):
 
     try:
         cur = conn.cursor()
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;")
         tables = [row[0] for row in cur.fetchall()]
 
-        if tables:
-            lines = ["Tables in current database:"]
-            for table in tables:
-                # Escape single quotes in table name for PRAGMA
-                safe = table.replace("'", "''")
-                cur.execute(f"PRAGMA table_info('{safe}');")
-                cols = [row[1] for row in cur.fetchall()]
-                col_list = ", ".join(cols) if cols else "(no columns)"
-                lines.append(f"- {table} ({col_list})")
-            result = "\n".join(lines)
-        else:
-            result = "No tables found in the current database."
+        if not tables:
+            display_result(output_textbox, "No tables found in the current database.")
+            return None
+
+        # impression "console cumulative"
+        output_textbox.config(state="normal")
+        output_textbox.insert("end", "Tables in current database:\n\n", "tbl")
+
+        for table in tables:
+            safe = table.replace("'", "''")
+
+            # Colonnes + PK
+            cur.execute(f"PRAGMA table_info('{safe}');")
+            table_info = cur.fetchall()                 # (cid,name,type,notnull,dflt,pk)
+            pk_cols = {row[1] for row in table_info if row[5] != 0}
+
+            # Colonnes référencées comme FK
+            cur.execute(f"PRAGMA foreign_key_list('{safe}');")
+            fk_info = cur.fetchall()                    # (id,seq,table,from,to,on_update,on_delete,match)
+            fk_cols = {row[3] for row in fk_info}       # 'from' = nom de la colonne locale
+
+            # Ligne : - Table (col1, col2, ...)
+            output_textbox.insert("end", f"- {table} (", "tbl")
+            for i, row in enumerate(table_info):
+                col = row[1]
+
+                start = output_textbox.index("end")
+                # PK en rouge (tag "pk"), sinon normal
+                if col in pk_cols:
+                    output_textbox.insert("end", col, "pk")
+                else:
+                    output_textbox.insert("end", col)
+
+                # FK → ajouter un '#'
+                if col in fk_cols:
+                    output_textbox.insert("end", "#")
+
+                if i < len(table_info) - 1:
+                    output_textbox.insert("end", ", ", "comma")
+            output_textbox.insert("end", ")\n")
+
+        output_textbox.insert("end", "\n")
+        output_textbox.config(state="disabled")
+
     except Exception as e:
-        result = f"Error retrieving tables:\n{e}"
+        display_result(output_textbox, f"Error retrieving tables:\n{e}")
 
-    display_result(output_textbox, result)
     return None
-
 
 
 def save_sql_code(sql_textbox, menu=None):

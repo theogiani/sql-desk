@@ -154,6 +154,11 @@ output_font = font.Font(family="Courier", size=global_vars.font_size_output)
 output_textbox = ScrolledText(frame_output, width=75, height=20, background=global_vars.bg_textbox, font=output_font)
 output_textbox.grid(row=1, column=0, sticky="nsew")
 output_textbox.config(state='disabled')
+# Tags for coloured/bold text in output
+output_textbox.tag_config("pk", foreground="red")               # PK en rouge
+output_textbox.tag_config("tbl", font=("Courier", global_vars.font_size_output, "bold"))  # Noms de tables en gras
+output_textbox.tag_config("comma", foreground="#888888")        # Virgules gris clair
+
 
 
 # --- DB Menu (Open/Create + recent) ---
@@ -173,7 +178,7 @@ db_button.config(menu=db_menu)
 
 # Entrée : Open Database
 db_menu.add_command(
-    label="Open Database...",
+    label="Connect to a Database...",
     command=lambda: open_and_refresh(db_menu, output_textbox, window, choose_database, menu_open_database)
 )
 ##db_menu.add_command(
