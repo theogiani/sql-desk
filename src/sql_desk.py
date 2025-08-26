@@ -19,7 +19,7 @@
 
 
 from tkinter import *
-from tkinter import font#, simpledialog, filedialog
+from tkinter import font, simpledialog, filedialog, messagebox
 from tkinter.scrolledtext import ScrolledText
 import os, global_vars
 
@@ -125,6 +125,16 @@ sql_font = font.Font(family="Courier", size=global_vars.font_size_sql)
 
 sql_textbox = ScrolledText(frame_query, width=60, height=10, background=global_vars.bg_textbox, font=sql_font)
 sql_textbox.grid(row=1, column=0, sticky="nsew")
+
+
+# CTRL + ...
+# Undo/Redo + Save shortcuts
+sql_textbox.config(undo=True, maxundo=2000, autoseparators=True)
+window.bind("<Control-z>", lambda e: (sql_textbox.event_generate("<<Undo>>"), "break")[1])
+window.bind("<Control-y>", lambda e: (sql_textbox.event_generate("<<Redo>>"), "break")[1])
+window.bind("<Control-Shift-Z>", lambda e: (sql_textbox.event_generate("<<Redo>>"), "break")[1])
+window.bind("<Control-s>", lambda e: (save_sql_code(sql_textbox, sql_file_menu), "break")[1])
+
 
 clean_recent_sql_files()
 refresh_sql_file_menu(sql_file_menu, sql_textbox)

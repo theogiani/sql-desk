@@ -294,6 +294,30 @@ def quit_app(window):
         window.destroy()
 ```
 		
+## Technical priorities
+
+- [ ] Simple Save (Ctrl+S) — GUI_functions.py
+  - Add `current_sql_file` to `global_vars.py` (path of the current file).
+  - Implement `save_sql_code(sql_textbox, menu, force_save_as=False)`:
+    - If `current_sql_file` exists and `force_save_as` is False ⇒ overwrite that file.
+    - Otherwise ⇒ open a “Save As” dialogue and update `current_sql_file`.
+    - No Unicode in the code; end with `return None`.
+  - “SQL File” menu:
+    - Add **Save** (above **Save As**).
+    - **Save** calls `save_sql_code(..., force_save_as=False)`.
+    - **Save As** calls `save_sql_code(..., force_save_as=True)`.
+  - Shortcuts:
+    - **Ctrl+S** ⇒ Save (unless the file has not been named yet ⇒ Save As).
+    - **Ctrl+Shift+S** ⇒ Save As.
+  - On “Open…”:
+    - In `open_sql_code(...)`, set `global_vars.current_sql_file = filepath`.
+  - Acceptance criteria:
+    - Ctrl+S overwrites the same file if already named; otherwise opens Save As.
+    - The menu shows **Save** and **Save As** correctly.
+    - After **Open…**, Ctrl+S targets the opened file.
+    - Errors handled with `messagebox.showerror`.
+
+
 
 ### Gérer le retour à la ligne en tout début de texte dans `insert_linebreaks_before_keywords`
 - **Situation** : si le texte commence par un mot-clé (ex. `SELECT`), la fonction ajoute un `\n` au tout début, puis `.strip()` le supprime.  
@@ -436,6 +460,26 @@ qui gère correctement la fermeture et la sauvegarde des fichiers récents.
      ensured backward compatibility with all existing calls.  
   • Preserved behaviour of appending output without clearing the previous content.  
   • Successfully tested with SkillUp database: PKs shown in red, FKs marked with `#`.  
+  
+## ✅ Done — 26 Aug 2025
+
+- [x] Keyboard shortcuts in the SQL editor
+  - Ctrl+Z → Undo
+  - Ctrl+Y / Ctrl+Shift+Z → Redo
+  - Ctrl+S → Save As (temporary)
+- [x] Undo history enabled in the editor
+  - `undo=True`, `maxundo=2000`, `autoseparators=True`
+
+### How 
+- Enabled Tkinter’s native undo on `ScrolledText`.
+- Key bindings: `Ctrl+Z` → `<<Undo>>`, `Ctrl+Y` / `Ctrl+Shift+Z` → `<<Redo>>`, `Ctrl+S` → `save_sql_file()`.
+- `save_sql_file()` opens `asksaveasfilename`, writes UTF-8, and handles errors with `messagebox`.
+
+### Notes
+- A simple **Save** (overwrite) is not implemented yet.
+- For now, **Ctrl+S** always triggers Save As.
+
+
 
  
 ### Mise en forme & coloration des commentaires SQL

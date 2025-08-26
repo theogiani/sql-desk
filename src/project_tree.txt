@@ -1,0 +1,20 @@
+Structure du dossier pour le volume Data
+Le num‚ro de s‚rie du volume est 66D6-C13F
+F:.
+|   database_management.py
+|   European_School_logoBR.png
+|   global_vars.py
+|   GUI_functions.py
+|   project_tree.txt
+|   recent_db_files.txt
+|   recent_sql_files.txt
+|   sql_desk.py
+|   test_linebreaks.py
+|   utils.py
+|   
+\---__pycache__
+        database_management.cpython-313.pyc
+        global_vars.cpython-313.pyc
+        GUI_functions.cpython-313.pyc
+        utils.cpython-313.pyc
+        
