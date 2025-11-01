@@ -64,37 +64,79 @@ def menu_open_database(output_textbox, window=None, db_menu=None):
 ##    return None
 
 
+##def create_new_database(output_textbox, window=None, db_menu=None):
+##    """
+##    Prompt for a new database name, create the .db file, then select and open it.
+##    No GUI refresh here; the GUI will refresh the menu after calling this.
+##    """
+##    name = simpledialog.askstring(
+##        "New Database", "Enter name for new database (without .db):"
+##    )
+##    if not name:
+##        return None
+##
+##    filename = f"{name}.db"
+##    with open(filename, "w"):
+##        # Touch the file; sqlite will initialize it on first connection.
+##        pass
+##
+##    # Open immediately via the single-connection flow.
+##    # choose_database will:
+##    # - close any existing connection,
+##    # - open the new one,
+##    # - set global_vars.current_database/current_connection,
+##    # - update recent_db_files and save them,
+##    # - update the window title (if provided).
+##    choose_database(
+##        filename,
+##        output_textbox=output_textbox,
+##        window=window,
+##        db_menu=None  # GUI will refresh the menu afterwards
+##    )
+##    return None
+
 def create_new_database(output_textbox, window=None, db_menu=None):
     """
-    Prompt for a new database name, create the .db file, then select and open it.
-    No GUI refresh here; the GUI will refresh the menu after calling this.
+    Create a new SQLite database in a user-chosen directory.
+    The file is created empty, then opened immediately via choose_database().
+    The GUI is responsible for refreshing the menu afterwards.
     """
-    name = simpledialog.askstring(
-        "New Database", "Enter name for new database (without .db):"
+    filepath = filedialog.asksaveasfilename(
+        title="Create New Database",
+        defaultextension=".db",
+        filetypes=[("SQLite Database", "*.db"), ("All Files", "*.*")]
     )
-    if not name:
+
+    if not filepath:
+        # User cancelled the dialog
+        display_result(output_textbox, "Database creation cancelled.")
         return None
 
-    filename = f"{name}.db"
-    with open(filename, "w"):
-        # Touch the file; sqlite will initialize it on first connection.
-        pass
+    # Create the file if it does not exist yet
+    try:
+        with open(filepath, "w"):
+            pass
+    except Exception as e:
+        display_result(output_textbox, f"Error creating file: {e}")
+        return None
 
-    # Open immediately via the single-connection flow.
-    # choose_database will:
-    # - close any existing connection,
-    # - open the new one,
-    # - set global_vars.current_database/current_connection,
-    # - update recent_db_files and save them,
-    # - update the window title (if provided).
+    # Open immediately using the unified connection flow
     choose_database(
-        filename,
+        filepath,
         output_textbox=output_textbox,
         window=window,
-        db_menu=None  # GUI will refresh the menu afterwards
+        db_menu=None  # GUI will refresh afterwards
     )
-    return None
 
+    # Add to recent list (handled again inside choose_database, but kept safe)
+    global_vars.recent_db_files.insert(0, filepath)
+    global_vars.recent_db_files = list(dict.fromkeys(global_vars.recent_db_files))[:10]
+    save_recent_files("recent_db_files.txt", global_vars.recent_db_files)
+
+    # Display confirmation
+    name = os.path.basename(filepath)
+    display_result(output_textbox, f"✅ Created and opened new database: {name}")
+    return None
 
 
 def choose_database(value, *, output_textbox=None, window=None, db_menu=None):

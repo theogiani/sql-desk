@@ -395,4 +395,28 @@ from tkinter import messagebox
 def quit_app(window):
     if messagebox.askokcancel("Quit", "Do you really want to exit?"):
         window.destroy()
+
+
 ```
+
+#### 01 Nov 2025 — Repository clean-up, `.gitignore` update, and database creation workflow
+
+* **.gitignore**
+  * Simplified and modernised for a cleaner repository layout.
+  * Keeps all code under `/src`, documentation files (`.docx`, `.pdf`, `.md`), and teaching materials (`sample_databases/`).
+  * Ignores cache files, local databases, virtual environments, and temporary folders such as `Old/` or backup directories like `src-2025-...`.
+
+* **Database creation**
+  * `create_new_database()` successfully refactored with `filedialog.asksaveasfilename` to let users pick both the directory and filename.
+  * Integrated immediate database opening via `choose_database()` for smoother workflow.
+  * Tested with new sample databases — fully functional.
+
+* **Repository organisation**
+  * Confirmed that `/WorkingArea` is the root of the Git repository.
+  * `/src` now clearly hosts all core Python modules.
+  * `sample_databases/` kept under version control (pedagogical examples).
+
+* **Next development focus**
+  * Comment colouring and protection (`--` and `/* ... */`).
+  * Goal: preserve comments during Pretty Print and display them in grey italics.
+

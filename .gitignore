@@ -1,42 +1,57 @@
-# --- SQL Desk .gitignore ---
+# --- SQL Desk .gitignore (Updated 2025-11-01) ---
 
-# Fichiers Python compilés
+# --- Python cache and compiled files ---
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Bases de données locales
-*.db
+# --- Local SQLite databases (personal or temporary) ---
 *.db-journal
+*.sqlite
+*.sqlite3
 
-# Fichiers générés par SQL Desk (liste des fichiers récents)
+# --- Auto-generated recent file lists ---
 recent_db_files.txt
 recent_sql_files.txt
-/src/recent_db_files.txt
-/src/recent_sql_files.txt
+src/recent_db_files.txt
+src/recent_sql_files.txt
 
-# Fichiers de test Python
+# --- Test or temporary scripts ---
 **/test*.py
-
-# Environnements virtuels Python
-.venv/
-env/
-venv/
-
-# Fichiers temporaires / cache
-*.log
 *.tmp
+*.log
+*.bak
 .cache/
 .pytest_cache/
 .mypy_cache/
 
-# Jupyter Notebooks (si utilisés)
-.ipynb_checkpoints
+# --- Virtual environments ---
+.venv/
+env/
+venv/
 
-# Répertoires de configuration IDE/éditeur
+# --- IDE / Editor configuration ---
 .idea/
 .vscode/
-Old/
-Old/
 
-src - 100825-QuitOk/
+# --- Old and temporary directories ---
+Old/
+src-*/           # any backup folder like src-100825-QuitOk
+
+# --- System / OS files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Keep documentation, assets, and teaching material ---
+!*.md
+!*.docx
+!*.pdf
+!*.png
+!*.gif
+!*.ico
+!LICENSE.md
+
+# --- Keep sample databases for educational use ---
+!sample_databases/
+!sample_databases/**
