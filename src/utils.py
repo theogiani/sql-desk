@@ -1,12 +1,11 @@
 # utils.py
-# Utility functions for SQL Desk (formatting, recent files, syntax styling)
-# Author: Théo Giani (2025)
+# Utility functions for SQL Desk: formatting, recent files, and SQL syntax highlighting.
+# Author : Théo Giani — 2025
 
 import os
 import re
 import global_vars
 from tkinter import Tk, END
-
 
 
 SQL_KEYWORDS = {
@@ -23,7 +22,6 @@ SQL_KEYWORDS = {
     "VIEW", "TRIGGER", "BEFORE", "AFTER", "INSTEAD", "OF", "BEGIN", "COMMIT", "ROLLBACK", "TRANSACTION"
 }
 
-
 LINEBREAK_KEYWORDS = {
     "SELECT", "FROM", "WHERE", "GROUP BY", "HAVING", "ORDER BY", "LIMIT", "OFFSET",
     "UNION", "VALUES", "INSERT INTO", "UPDATE", "SET", "DELETE FROM",
@@ -34,16 +32,24 @@ LINEBREAK_KEYWORDS = {
 SQL_KEYWORDS = SQL_KEYWORDS.union(LINEBREAK_KEYWORDS)
 
 
-
 def make_pretty_table(info, body):
     """
-    Returns a Markdown-style table from query result.
+    Build a Markdown-style table from a query result.
+
+    Args:
+        info : list or cursor.description
+            Column headers (list of strings or cursor description tuples).
+        body : list of tuples
+            Data rows to include in the table.
+
+    Returns:
+        str : Formatted table as a string.
     """
     if not info:
         return "\n| (No data returned) |\n"
 
-    # FIX: si info est déjà une liste de noms (str), la prendre telle quelle ;
-    # sinon (tuples type cursor.description), prendre l'index 0.
+    # If 'info' is a list of strings, use it directly;
+    # otherwise, extract the first element of each tuple.
     if isinstance(info[0], str):
         headings = list(info)
     else:
@@ -69,11 +75,18 @@ def make_pretty_table(info, body):
     return result
 
 
-
-
 def save_recent_files(file_path, source_list):
     """
-    Saves list of recent files to disk.
+    Save a list of recent files to disk.
+
+    Args:
+        file_path : str
+            Path to the text file where the list will be written.
+        source_list : list
+            List of file paths as strings.
+
+    Returns:
+        None
     """
     try:
         with open(file_path, 'w', encoding='utf-8') as f:
@@ -86,7 +99,14 @@ def save_recent_files(file_path, source_list):
 
 def highlight_keywords(query: str) -> str:
     """
-    Converts known SQL keywords to uppercase.
+    Convert recognised SQL keywords in a string to uppercase.
+
+    Args:
+        query : str
+            SQL code to format.
+
+    Returns:
+        str : Query with SQL keywords uppercased.
     """
     matches = re.finditer(r'\b\w+\b', query)
     result = ''
@@ -105,7 +125,14 @@ def highlight_keywords(query: str) -> str:
 
 def colorize_keywords(text_widget):
     """
-    Applies colour tag to SQL keywords in Text widget.
+    Apply colour tags to SQL keywords inside a Tkinter Text widget.
+
+    Args:
+        text_widget : tkinter.Text
+            The text area to be colourised.
+
+    Returns:
+        None
     """
     text_widget.tag_remove("sql_keyword", "1.0", "end")
     text_widget.tag_configure("sql_keyword", foreground="#4A637D")
@@ -123,35 +150,41 @@ def colorize_keywords(text_widget):
     return None
 
 
-
 def insert_linebreaks_before_keywords(sql_code: str) -> str:
     """
-    Inserts newlines before key SQL keywords (from LINEBREAK_KEYWORDS),
-    in an idempotent way: no duplicate newlines on repeated runs.
+    Insert newlines before key SQL keywords (from LINEBREAK_KEYWORDS)
+    in an idempotent way: repeated calls will not add redundant line breaks.
+
+    Args:
+        sql_code : str
+            SQL query string.
+
+    Returns:
+        str : Reformatted SQL string.
     """
     formatted = sql_code
     for keyword in sorted(LINEBREAK_KEYWORDS, key=len, reverse=True):
         pattern = rf"\b{re.escape(keyword)}\b"
         formatted = re.sub(pattern, rf"\n{keyword}", formatted, flags=re.IGNORECASE)
+
     # Remove redundant newlines and whitespace
-    formatted = re.sub(r"[ \t]+\n", "\n", formatted)  # supprime l’espace avant le saut de ligne
+    formatted = re.sub(r"[ \t]+\n", "\n", formatted)
     formatted = re.sub(r'\n\s*', '\n', formatted)
     return formatted.strip()
 
 
-##def on_closing(window: Tk):
-##    """
-##    Save recent files, close the active database connection, and destroy the window.
-##    """
-##    save_recent_files("recent_sql_files.txt", global_vars.recent_sql_files)
-##    save_recent_files("recent_db_files.txt", global_vars.recent_db_files)
-##    close_active_connection(commit_changes=True)
-##    window.destroy()
-##    return None
-
 def on_closing(window, pre_close=None):
     """
-    Save recent files, run optional pre-close hook, and destroy the window.
+    Save recent files, execute an optional pre-close hook, and close the window.
+
+    Args:
+        window : tkinter.Tk
+            The main window to close.
+        pre_close : callable or None
+            Optional function to run before closing.
+
+    Returns:
+        None
     """
     save_recent_files("recent_sql_files.txt", global_vars.recent_sql_files)
     save_recent_files("recent_db_files.txt", global_vars.recent_db_files)
@@ -166,23 +199,44 @@ def on_closing(window, pre_close=None):
     return None
 
 
-
-
 def update_recent_sql_files(filepath, max_items=10):
+    """
+    Update the list of recent SQL files, ensuring no duplicates
+    and enforcing a maximum number of entries.
+
+    Args:
+        filepath : str
+            Path of the file to move to the top of the list.
+        max_items : int
+            Maximum number of entries to keep.
+
+    Returns:
+        None
+    """
     if filepath in global_vars.recent_sql_files:
         global_vars.recent_sql_files.remove(filepath)
 
     global_vars.recent_sql_files.insert(0, filepath)
     global_vars.recent_sql_files = global_vars.recent_sql_files[:max_items]
 
-    # Sauvegarder la liste mise à jour
     save_recent_files("recent_sql_files.txt", global_vars.recent_sql_files)
     return None
 
-    
+
 def load_recent_files(file_path, target_list, max_items=8):
     """
-    Loads recent files into the target list.
+    Load a list of recent file paths from disk into a target list.
+
+    Args:
+        file_path : str
+            Path to the text file on disk.
+        target_list : list
+            The in-memory list to overwrite.
+        max_items : int
+            Maximum number of entries to load.
+
+    Returns:
+        None
     """
     if not os.path.exists(file_path):
         return None
@@ -199,7 +253,10 @@ def load_recent_files(file_path, target_list, max_items=8):
 
 def clean_recent_db_files():
     """
-    Removes non-existing .db files from recent_db_files.
+    Remove paths from recent_db_files that no longer exist on disk.
+
+    Returns:
+        None
     """
     global_vars.recent_db_files = [
         f for f in global_vars.recent_db_files if os.path.exists(f)
@@ -210,7 +267,10 @@ def clean_recent_db_files():
 
 def clean_recent_sql_files():
     """
-    Removes non-existing .sql files from recent_sql_files.
+    Remove paths from recent_sql_files that no longer exist on disk.
+
+    Returns:
+        None
     """
     global_vars.recent_sql_files = [
         f for f in global_vars.recent_sql_files if os.path.exists(f)
@@ -218,22 +278,25 @@ def clean_recent_sql_files():
     save_recent_files("recent_sql_files.txt", global_vars.recent_sql_files)
     return None
 
-##
-##def display_result(output_box, text):
-##    '''Displays result text in output area'''
-##    output_box.config(state='normal')
-##    output_box.insert(END, text.rstrip() + "\n\n")
-##    output_box.see(END)
-##    output_box.config(state='disabled')
-##    return None
-
 
 def display_result(output_box, text=None, chunks=None):
-    '''Displays plain or styled result text in output area'''
+    """
+    Display plain or styled result text in the output area.
+
+    Args:
+        output_box : tkinter.Text
+            The output widget.
+        text : str or None
+            Plain text to display (mutually exclusive with 'chunks').
+        chunks : list[tuple[str, str or None]] or None
+            Styled mode: each element is a (string, tagname) pair.
+
+    Returns:
+        None
+    """
     output_box.config(state='normal')
 
     if chunks is not None:
-        # styled mode: chunks is a list of (string, tagname_or_None)
         for s, tag in chunks:
             if tag:
                 output_box.insert("end", s, (tag,))
@@ -241,7 +304,6 @@ def display_result(output_box, text=None, chunks=None):
                 output_box.insert("end", s)
         output_box.insert("end", "\n\n")
     elif text is not None:
-        # plain mode: original behaviour
         output_box.insert("end", text.rstrip() + "\n\n")
 
     output_box.see("end")
@@ -249,12 +311,18 @@ def display_result(output_box, text=None, chunks=None):
     return None
 
 
-
 def clear_output(output_box):
-    '''Clears the output area'''
+    """
+    Clear the entire output area.
+
+    Args:
+        output_box : tkinter.Text
+            The output widget to clear.
+
+    Returns:
+        None
+    """
     output_box.config(state='normal')
     output_box.delete("1.0", END)
     output_box.config(state='disabled')
     return None
-
-

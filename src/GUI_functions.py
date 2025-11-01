@@ -1,13 +1,17 @@
 # GUI_functions.py
-
-# Core GUI logic for SQL Desk – a lightweight SQL sandbox tool
-
-# Dependencies:
-# - Uses sqlite3 for database access
-# - Tkinter widgets and filedialog for GUI interaction
-# - Relies on helper functions in: utils.py, database_management.py, global_vars.py
-
-
+#
+# Core GUI logic for SQL Desk – a lightweight educational SQL sandbox.
+#
+# Responsibilities :
+# - Execute SQL code using the active SQLite connection
+# - Manage recent SQL files and databases
+# - Provide pretty-printing and keyword colouring
+# - Serve as the link between GUI buttons and underlying functions
+#
+# Dependencies :
+# - sqlite3 for database access
+# - Tkinter widgets and filedialog for user interaction
+# - Helper modules : utils.py, database_management.py, global_vars.py
 
 import sqlite3
 import os
@@ -19,20 +23,31 @@ from utils import (
 from tkinter import filedialog, messagebox
 
 
-
 def run_sql(sql_textbox, output_textbox):
     """
-    Execute the selected SQL (if any) or the whole editor content using the
-    single active SQLite connection (global_vars.current_connection).
-    Commits after non-SELECT statements; pretty-prints as before.
+    Execute the selected SQL code (if any) or the entire buffer using
+    the current SQLite connection (mono-connection model).
+
+    Behaviour :
+        - SELECT statements : fetch and pretty-print results.
+        - Other statements  : commit automatically and show rows affected.
+        - Each statement is executed in sequence.
+
+    Args:
+        sql_textbox : tkinter.Text
+            The SQL editor widget.
+        output_textbox : tkinter.Text
+            The output area for displaying results.
+
+    Returns:
+        None
     """
-    # 0) Require an active connection (mono-connection model)
     conn = global_vars.current_connection
     if conn is None:
-        display_result(output_textbox, "No database connected. Use Database -> Open...")
+        display_result(output_textbox, "No database connected. Use Database → Open…")
         return None
 
-    # 1) Retrieve either the selection or the whole buffer
+    # Retrieve either the selection or the whole content
     if sql_textbox.tag_ranges("sel"):
         sql_code = sql_textbox.get("sel.first", "sel.last").strip()
         do_pretty_after = True
@@ -44,13 +59,12 @@ def run_sql(sql_textbox, output_textbox):
         display_result(output_textbox, "(Nothing to execute.)")
         return None
 
-    # 2) Split into complete SQL statements
+    # Split into complete SQL statements
     statements = split_sql_statements(sql_code)
     if not statements:
         display_result(output_textbox, "(No complete SQL statement found.)")
         return None
 
-    # 3) Execute each statement on the active connection
     cur = conn.cursor()
     for idx, stmt in enumerate(statements, 1):
         try:
@@ -61,13 +75,9 @@ def run_sql(sql_textbox, output_textbox):
             if is_select:
                 rows = cur.fetchall()
                 headers = [d[0] for d in cur.description]
-                # make_pretty_table expects (columns, rows)
                 result = make_pretty_table(headers, rows)
             else:
-                affected = conn.total_changes - before
-                if affected < 0:
-                    affected = 0
-                # commit after write statements
+                affected = max(conn.total_changes - before, 0)
                 if conn.in_transaction:
                     try:
                         conn.commit()
@@ -77,7 +87,7 @@ def run_sql(sql_textbox, output_textbox):
                         except Exception:
                             pass
                         raise
-                result = f"OK - {affected} row(s) affected."
+                result = f"OK – {affected} row(s) affected."
 
             display_result(output_textbox, result)
             display_result(output_textbox, "")
@@ -87,7 +97,6 @@ def run_sql(sql_textbox, output_textbox):
                 pass
 
         except Exception as e:
-            # rollback if the statement left a transaction open
             if conn.in_transaction:
                 try:
                     conn.rollback()
@@ -95,20 +104,26 @@ def run_sql(sql_textbox, output_textbox):
                     pass
             display_result(output_textbox, f"Error in statement {idx}: {e}")
 
-    # 4) Pretty print only when requested
+    # Pretty-print SQL after execution for visual consistency
     if do_pretty_after:
         pretty_print_sql(sql_textbox)
 
     return None
 
 
-
-
-
 def split_sql_statements(sql_code):
     """
-    Split SQL code into complete statements using sqlite3.complete_statement(),
-    works even when multiple statements share the same line (e.g. '...;INSERT ...').
+    Split SQL code into complete statements, using
+    sqlite3.complete_statement() to ensure correctness.
+
+    Handles cases where multiple statements share a single line.
+
+    Args:
+        sql_code : str
+            Raw SQL text from the editor.
+
+    Returns:
+        list[str] : List of individual SQL statements.
     """
     statements = []
     buffer = ""
@@ -121,7 +136,7 @@ def split_sql_statements(sql_code):
                 statements.append(stmt)
             buffer = ""
 
-    # S'il reste des miettes non vides (sans ';'), on les exécute aussi.
+    # Handle trailing content without a final semicolon
     tail = buffer.strip()
     if tail:
         statements.append(tail)
@@ -129,40 +144,21 @@ def split_sql_statements(sql_code):
     return statements
 
 
-
-##def get_tables(output_textbox):
-##    """Display table names and columns from the current DB using the active connection."""
-##    conn = global_vars.current_connection
-##    if conn is None:
-##        display_result(output_textbox, "No database connected.")
-##        return None
-##
-##    try:
-##        cur = conn.cursor()
-##        cur.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
-##        tables = [row[0] for row in cur.fetchall()]
-##
-##        if tables:
-##            lines = ["Tables in current database:"]
-##            for table in tables:
-##                # Escape single quotes in table name for PRAGMA
-##                safe = table.replace("'", "''")
-##                cur.execute(f"PRAGMA table_info('{safe}');")
-##                cols = [row[1] for row in cur.fetchall()]
-##                col_list = ", ".join(cols) if cols else "(no columns)"
-##                lines.append(f"- {table} ({col_list})")
-##            result = "\n".join(lines)
-##        else:
-##            result = "No tables found in the current database."
-##    except Exception as e:
-##        result = f"Error retrieving tables:\n{e}"
-##
-##    display_result(output_textbox, result)
-##    return None
-
-
 def get_tables(output_textbox):
-    """Display table names and columns with PK (red) and FK (#) marking."""
+    """
+    Display the list of tables in the current database,
+    including their columns, primary keys, and foreign keys.
+
+    Primary keys are shown in red (tag 'pk'),
+    and foreign keys are marked with a '#' character.
+
+    Args:
+        output_textbox : tkinter.Text
+            Output widget for displaying table structures.
+
+    Returns:
+        None
+    """
     conn = global_vars.current_connection
     if conn is None:
         display_result(output_textbox, "No database connected.")
@@ -170,43 +166,41 @@ def get_tables(output_textbox):
 
     try:
         cur = conn.cursor()
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;")
+        cur.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;"
+        )
         tables = [row[0] for row in cur.fetchall()]
 
         if not tables:
             display_result(output_textbox, "No tables found in the current database.")
             return None
 
-        # impression "console cumulative"
         output_textbox.config(state="normal")
         output_textbox.insert("end", "Tables in current database:\n\n", "tbl")
 
         for table in tables:
             safe = table.replace("'", "''")
 
-            # Colonnes + PK
+            # Column definitions and PK
             cur.execute(f"PRAGMA table_info('{safe}');")
-            table_info = cur.fetchall()                 # (cid,name,type,notnull,dflt,pk)
+            table_info = cur.fetchall()  # (cid, name, type, notnull, dflt, pk)
             pk_cols = {row[1] for row in table_info if row[5] != 0}
 
-            # Colonnes référencées comme FK
+            # Foreign keys
             cur.execute(f"PRAGMA foreign_key_list('{safe}');")
-            fk_info = cur.fetchall()                    # (id,seq,table,from,to,on_update,on_delete,match)
-            fk_cols = {row[3] for row in fk_info}       # 'from' = nom de la colonne locale
+            fk_info = cur.fetchall()      # (id, seq, table, from, to, on_update, on_delete, match)
+            fk_cols = {row[3] for row in fk_info}
 
-            # Ligne : - Table (col1, col2, ...)
             output_textbox.insert("end", f"- {table} (", "tbl")
             for i, row in enumerate(table_info):
                 col = row[1]
 
-                start = output_textbox.index("end")
-                # PK en rouge (tag "pk"), sinon normal
                 if col in pk_cols:
                     output_textbox.insert("end", col, "pk")
                 else:
                     output_textbox.insert("end", col)
 
-                # FK → ajouter un '#'
                 if col in fk_cols:
                     output_textbox.insert("end", "#")
 
@@ -224,7 +218,7 @@ def get_tables(output_textbox):
 
 
 def save_sql_code(sql_textbox, menu=None):
-    '''Saves formatted SQL to file'''
+    """Save the current SQL editor content (with highlighted keywords) to a file."""
     raw_sql = sql_textbox.get("1.0", "end-1c")
     formatted_sql = highlight_keywords(raw_sql)
 
@@ -248,11 +242,11 @@ def save_sql_code(sql_textbox, menu=None):
 
 
 def open_sql_code(sql_textbox, filepath=None, menu=None):
-    '''Opens SQL file and inserts it into editor'''
+    """Open an SQL file and load its content into the editor."""
     if not filepath:
         filepath = filedialog.askopenfilename(
             title="Open SQL File",
-            filetypes=[("SQL files", "*.sql"), ("All files", "*.*")]
+            filetypes=[("SQL Files", "*.sql"), ("All Files", "*.*")]
         )
     if not filepath:
         return None
@@ -264,19 +258,17 @@ def open_sql_code(sql_textbox, filepath=None, menu=None):
         sql_textbox.insert("1.0", content)
         pretty_print_sql(sql_textbox)
         update_recent_sql_files(filepath)
-        
+
         if menu:
-            # Rafraîchissement différé pour éviter problème d'affichage
             sql_textbox.after(50, lambda: refresh_sql_file_menu(menu, sql_textbox))
-        
+
     except Exception as e:
-        # Voir plus tard comment gérer les messages d'erreur
         messagebox.showerror("Error", f"Failed to open file:\n{e}")
     return None
 
 
 def change_font_size(selection, target_font, font_type):
-    '''Updates font size in SQL or output box'''
+    """Adjust the font size in either the SQL or output text box."""
     size = int(selection)
 
     if font_type == "sql":
@@ -289,7 +281,7 @@ def change_font_size(selection, target_font, font_type):
 
 
 def refresh_sql_file_menu(menu, textbox):
-    '''Refreshes SQL file menu with recent files'''
+    """Rebuild the SQL File menu with updated recent entries."""
     menu.delete(0, 'end')
     menu.add_command(label="Open SQL...", command=lambda: open_sql_code(textbox, menu=menu))
     menu.add_command(label="Save SQL...", command=lambda: save_sql_code(textbox, menu=menu))
@@ -305,14 +297,21 @@ def refresh_sql_file_menu(menu, textbox):
 
 
 def pretty_print_sql(sql_textbox):
-    '''Applies keyword capitalisation, linebreaks, and colouring'''
-    import re  # local import pour eviter d'ajouter d'import en haut
+    """
+    Apply SQL formatting :
+        - Insert line breaks before key SQL words.
+        - Ensure blank lines after semicolons and comments.
+        - Capitalise recognised keywords.
+        - Restore cursor and scroll position.
 
-    # --- NEW: save cursor/selection/scroll state ---
+    The aim is to make SQL code visually consistent and easier to read.
+    """
+    import re
+
     insert_idx = sql_textbox.index("insert")
     try:
         sel_start = sql_textbox.index("sel.first")
-        sel_end   = sql_textbox.index("sel.last")
+        sel_end = sql_textbox.index("sel.last")
         had_sel = True
     except Exception:
         had_sel = False
@@ -325,35 +324,26 @@ def pretty_print_sql(sql_textbox):
 
     raw_query = sql_textbox.get("1.0", "end-1c")
 
-    # 1) Line breaks avant les mots-cles
     formatted_query = insert_linebreaks_before_keywords(raw_query)
 
-    # 2) Ligne vide apres chaque instruction + eventuels commentaires
-    #    - detecte un ';', puis des commentaires eventuels '-- ...'
-    #    - insere la ligne vide apres ces commentaires
     pattern = r'(;[^\n]*(?:\n--[^\n]*)*)(?=\n(?!\n))'
     formatted_query = re.sub(pattern, r'\1\n', formatted_query)
 
-    # 3) Capitalisation des mots-cles
     formatted_query = highlight_keywords(formatted_query)
 
-    # (optionnel) marquer une separatrice d'undo pour que tout soit une seule action
     try:
         sql_textbox.edit_separator()
     except Exception:
         pass
 
-    # 4) Injecter + recoloriser (ta logique d'origine)
     sql_textbox.delete("1.0", "end")
     sql_textbox.insert("1.0", formatted_query)
     colorize_keywords(sql_textbox)
 
-    # --- NEW: restore cursor/selection/scroll state ---
     sql_textbox.mark_set("insert", insert_idx)
     if had_sel:
         sql_textbox.tag_remove("sel", "1.0", "end")
         sql_textbox.tag_add("sel", sel_start, sel_end)
-    # d'abord le viewport, puis s'assurer que le curseur est visible
     sql_textbox.yview_moveto(top_frac)
     try:
         sql_textbox.xview_moveto(x_frac)
@@ -362,7 +352,6 @@ def pretty_print_sql(sql_textbox):
     sql_textbox.see("insert")
     sql_textbox.focus_set()
 
-    # (optionnel) separatrice d'undo apres
     try:
         sql_textbox.edit_separator()
     except Exception:
@@ -371,21 +360,24 @@ def pretty_print_sql(sql_textbox):
     return None
 
 
-
-
-
-
-# --- dans GUI_functions.py ---
-
 def refresh_db_file_menu(menu, output_textbox, window=None, *, select_database):
     """
-    Rebuild only the dynamic 'Recent databases' section.
-    `select_database` is a callable (e.g. database_management.choose_database).
-    """
-    import os
-    import global_vars
+    Rebuild the 'Recent Databases' section of the Database menu.
 
-    menu.delete(3, 'end')  # 0=Open, 1=Create, 2=separator
+    Args:
+        menu : tkinter.Menu
+            The database menu widget.
+        output_textbox : tkinter.Text
+            Output area for feedback.
+        window : tkinter.Tk, optional
+            Main application window.
+        select_database : callable
+            Function that handles the actual database selection.
+
+    Returns:
+        None
+    """
+    menu.delete(3, 'end')
     for i, filepath in enumerate(global_vars.recent_db_files, 1):
         short = os.path.basename(filepath)
         menu.add_command(
@@ -398,30 +390,25 @@ def refresh_db_file_menu(menu, output_textbox, window=None, *, select_database):
 
 
 # =========================
-# WRAPPERS (GUI callbacks)
+# GUI CALLBACK WRAPPERS
 # =========================
 
 def choose_recent_db(filepath, menu, output_textbox, window, select_database):
-    """Open the selected recent DB, then refresh the submenu."""
+    """Open a recent database and refresh the menu list."""
     select_database(filepath, output_textbox=output_textbox, window=window, db_menu=None)
     refresh_db_file_menu(menu, output_textbox, window, select_database=select_database)
     return None
 
+
 def open_and_refresh(menu, output_textbox, window, select_database, open_db_func):
-    """Open DB via dialog, then refresh 'Recent'."""
+    """Open a database via dialogue, then refresh the 'Recent' section."""
     open_db_func(output_textbox, window, db_menu=None)
     refresh_db_file_menu(menu, output_textbox, window, select_database=select_database)
     return None
 
+
 def create_and_refresh(menu, output_textbox, window, select_database, create_db_func):
-    """Create DB, then refresh 'Recent'."""
+    """Create a new database and refresh the 'Recent' section."""
     create_db_func(output_textbox, window, db_menu=None)
     refresh_db_file_menu(menu, output_textbox, window, select_database=select_database)
     return None
-
-
-
-
-
-
-

@@ -528,3 +528,10 @@ qui gère correctement la fermeture et la sauvegarde des fichiers récents.
   * Comment colouring and protection (`--` and `/* ... */`).
   * Goal: preserve comments during Pretty Print and display them in grey italics.
 
+### 2025-11-01 — Codebase documentation and cleanup
+- Rewrote all docstrings and inline comments in Queen’s English.
+- Removed obsolete commented-out code fragments and minor redundancies.
+- Ensured consistent style, indentation, and tone across all core modules (`sql_desk.py`, `GUI_functions.py`, `database_management.py`, `utils.py`).
+- Verified that logic and functionality remain unchanged.
+
+
