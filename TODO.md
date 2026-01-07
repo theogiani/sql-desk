@@ -535,3 +535,130 @@ qui gère correctement la fermeture et la sauvegarde des fichiers récents.
 - Verified that logic and functionality remain unchanged.
 
 
+#### 03 Nov 2025 - Pretty Print bug — line breaks inserted after comment markers
+
+**Date:** 2025-11-03  
+**Category:** Pretty Print / Safety
+
+**Description:**  
+The Pretty Print function introduces unwanted line breaks right after the `--` comment marker.  
+As a result, commented SQL queries are split over two lines:
+the `--` remains alone, while the SQL code moves to the next line and becomes executable.
+
+**Observed behaviour:**  
+```sql
+-- SELECT * FROM Role;
+```
+is reformatted as:
+```sql
+--
+SELECT * FROM Role;
+```
+Hence, on the next execution, the SQL statements run even though they were originally commented out.
+
+**Expected behaviour:**  
+- Preserve comments and their associated lines as single logical units.  
+- Never insert a newline between `--` and the text following it.
+
+**Suggested fixes:**  
+1. Detect lines starting with `--` and treat them as atomic (no internal line breaks).  
+2. Render them in Dark metallic Green for readability but never reflow them.  
+3. Add regression tests using seed scripts (like GalaxyQuest) to ensure comment integrity.
+
+**Priority:**  **High (execution safety)**
+
+
+#### 03 Nov 2025 - Excessive blank lines in output:
+The console currently inserts multiple empty lines between successive messages or result tables, making the output unnecessarily long and harder to read.
+Normalise the spacing so that only one blank line is displayed between result blocks, and remove redundant leading or trailing empty lines.
+The objective is to produce a compact, consistent layout that remains visually clear after multiple executions.
+
+
+
+#### 04 Nov 2025 - 
+
+1. Add spacing around operators in Pretty Print
+Insert one idempotent space on each side of = (and possibly other operators such as <, >, <=, >=, <>, +, -, *, /).
+
+Example:
+Current: IdRole=8
+Desired: IdRole = 8
+
+⚙️ Ensure that repeated formatting does not insert additional spaces (idempotence required).
+
+2. Display NULL explicitly
+
+When a database field has a NULL value, display NULL instead of leaving the cell blank.
+Apply to all output formats (plain text and pretty table).
+Keep alignment and column widths consistent.
+
+
+####  13 Dec 2025  Multi-row `INSERT` formatting (Pretty Print)
+
+**Description**
+Currently, multi-row `INSERT INTO ... VALUES (...), (...), ...;` statements remain in a single block.
+The pretty printer does not detect commas separating tuples.
+
+**Goal**
+Improve readability by inserting a newline between tuples while keeping commas inside tuples untouched.
+
+**Possible approaches**
+
+1. **Regex approach (simple):**
+
+   ```python
+   text = re.sub(r'\)\s*,\s*\(', '),\n(', text)
+   ```
+
+   ✅ Fast and good enough for educational use.
+2. **Structured parse (advanced):**
+   Iterate through characters while tracking parentheses depth; insert `\n` when a comma appears **outside** any parentheses.
+   ⚙️ More robust but heavier to implement.
+
+**Status:** To do — to be tested with scripts like *EcoRide.db*.
+⚠️ Ensure no newline insertion in string literals containing `),(`.
+
+---
+
+#### (2025-12-13) Couleur des messages dans la console (feedback utilisateur)
+
+**Description :**  
+Actuellement, tous les messages s'affichent en noir dans la zone d'output, qu'ils soient informatifs, positifs ou liés à une erreur.  
+Pour améliorer la lisibilité et le retour visuel, il serait utile d'appliquer des couleurs différentes selon le type de message.
+
+**Proposition :**
+- 🔴 **Rouge foncé** pour les messages d’erreur (exceptions SQLite, syntax errors, etc.)  
+- 🟢 **Vert** pour les messages de réussite (`Query executed`, `Database opened`, etc.)  
+- ⚫ **Noir ou gris neutre** pour les messages d’information généraux
+
+**Remarques techniques :**  
+→ Utiliser les balises `tag_config()` de `tk.Text` (ou `ScrolledText`) pour définir les couleurs à l’initialisation.  
+→ Le choix du rouge foncé (au lieu du rouge vif) garantit une bonne lisibilité sur fond clair.  
+→ S'assurer que les couleurs restent compatibles avec les thèmes futurs (Dark/Light).
+
+**Statut :** à implémenter.
+
+
+
+#### (2025-12-13) Taille de police non appliquée aux lignes "Tables in current database"
+
+**Description :**  
+Lorsque l'on modifie la taille de la police dans la fenêtre d'output, tous les caractères s'adaptent correctement,  
+sauf la ligne d'en-tête `"Tables in current database:"` et les noms de tables listés juste en dessous.
+
+**Cause probable :**  
+Ces lignes utilisent des balises (`tag_add`, `tag_config`) appliquées lors de la génération du menu des tables,  
+et leur police est fixée manuellement (ex. `("Consolas", 10, "bold")`) au lieu d’hériter de la police globale.
+
+**Objectif :**  
+Faire en sorte que ces éléments utilisent la même police que le reste de la fenêtre d'output,  
+et se redimensionnent lorsque la taille de police est modifiée par l'utilisateur.
+
+**Piste technique :**
+- Définir une *font variable* (`tk.font.Font`) commune à toute la zone d’output.  
+- L’utiliser pour la configuration des tags `db_header` et `db_table` au lieu de fixer la taille en dur.  
+- Reconfigurer dynamiquement cette police lorsqu’un changement de taille est détecté.
+
+**Statut :** à corriger.
+
+

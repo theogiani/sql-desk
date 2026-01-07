@@ -215,7 +215,8 @@ output_textbox.config(state='disabled')
 # - "pk"     : primary keys in red
 # - "tbl"    : table names in bold
 # - "comma"  : commas in light grey for readability
-output_textbox.tag_config("pk", foreground="red")
+output_textbox.tag_config("pk", foreground="#A00000",
+                          font=("Courier", global_vars.font_size_output, "bold"))
 output_textbox.tag_config("tbl", font=("Courier", global_vars.font_size_output, "bold"))
 output_textbox.tag_config("comma", foreground="#888888")
 

@@ -425,3 +425,123 @@ def quit_app(window):
 - Removed obsolete commented-out code fragments and minor redundancies.
 - Ensured consistent style, indentation, and tone across all core modules (`sql_desk.py`, `GUI_functions.py`, `database_management.py`, `utils.py`).
 - Verified that logic and functionality remain unchanged.
+
+
+
+#### 03 Nov 2025 - Pretty Print bug — line breaks inserted after comment markers
+
+**Date:** 2025-11-03  
+**Category:** Pretty Print / Safety
+
+**Description:**  
+The Pretty Print function introduces unwanted line breaks right after the `--` comment marker.  
+As a result, commented SQL queries are split over two lines:
+the `--` remains alone, while the SQL code moves to the next line and becomes executable.
+
+**Observed behaviour:**  
+```sql
+-- SELECT * FROM Role;
+```
+is reformatted as:
+```sql
+--
+SELECT * FROM Role;
+```
+Hence, on the next execution, the SQL statements run even though they were originally commented out.
+
+**Expected behaviour:**  
+- Preserve comments and their associated lines as single logical units.  
+- Never insert a newline between `--` and the text following it.
+
+**Suggested fixes:**  
+1. Detect lines starting with `--` and treat them as atomic (no internal line breaks).  
+2. Render them in Dark metallic Green for readability but never reflow them.  
+3. Add regression tests using seed scripts (like GalaxyQuest) to ensure comment integrity.
+
+**Priority:**  **High (execution safety)**
+
+
+#### 03 Nov 2025 - Excessive blank lines in output:
+The console currently inserts multiple empty lines between successive messages or result tables, making the output unnecessarily long and harder to read.
+Normalise the spacing so that only one blank line is displayed between result blocks, and remove redundant leading or trailing empty lines.
+The objective is to produce a compact, consistent layout that remains visually clear after multiple executions.
+
+
+#### 04 Nov 2025 - 
+
+1. Add spacing around operators in Pretty Print
+Insert one idempotent space on each side of = (and possibly other operators such as <, >, <=, >=, <>, +, -, *, /).
+
+Example:
+Current: IdRole=8
+Desired: IdRole = 8
+
+⚙️ Ensure that repeated formatting does not insert additional spaces (idempotence required).
+
+2. Display NULL explicitly
+
+When a database field has a NULL value, display NULL instead of leaving the cell blank.
+Apply to all output formats (plain text and pretty table).
+Keep alignment and column widths consistent.
+
+
+
+
+
+#### (2025-12-13) Multi-row `INSERT` formatting (Pretty Print)
+
+**Description**  
+Currently, multi-row `INSERT INTO ... VALUES (...), (...), ...;` statements remain in a single block.  
+The pretty printer does not detect commas separating tuples.
+
+**Goal**  
+Improve readability by inserting a newline between tuples while keeping commas inside tuples untouched.
+
+**Possible approaches**  
+1. **Regex approach (simple):**  
+   ```python
+   text = re.sub(r'\)\s*,\s*\(', '),\n(', text)
+
+
+
+#### (2025-12-13) Output message colours (user feedback)
+
+**Description**  
+Currently, all output messages appear in black text, whether they are information, success, or error messages.  
+To improve visual feedback and readability, it would be useful to apply distinct colours depending on message type.
+
+**Proposal**
+- 🔴 **Dark red** for error messages (SQLite exceptions, syntax errors, etc.)  
+- 🟢 **Green** for success messages (`Query executed`, `Database opened`, etc.)  
+- ⚫ **Black or neutral grey** for general information
+
+**Technical notes**  
+→ Use `tag_config()` in the `tk.Text` or `ScrolledText` widget to define colours at startup.  
+→ Prefer dark red over bright red for readability on light backgrounds.  
+→ Ensure compatibility with possible dark/light themes in future.
+
+**Status:** to implement.
+
+
+
+#### (2025-12-13) Font size not applied to "Tables in current database" section
+
+**Description**  
+When changing the output window font size, all text adjusts correctly except  
+for the header line `"Tables in current database:"` and the table names listed below.
+
+**Likely cause**  
+These lines are inserted with dedicated tags (`tag_add`, `tag_config`) that define a fixed font  
+(e.g. `("Consolas", 10, "bold")`) instead of inheriting from the global font configuration.
+
+**Goal**  
+Ensure that the header and table names follow the same font settings as the rest of the output window  
+and resize properly when the user changes the font size.
+
+**Technical suggestion**
+- Define a shared `tk.font.Font` object for the output widget.  
+- Use it for both `db_header` and `db_table` tags instead of hardcoded fonts.  
+- Reconfigure this shared font when font size changes are triggered.
+
+**Status:** to fix.
+
