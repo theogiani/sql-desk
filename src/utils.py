@@ -123,6 +123,88 @@ def highlight_keywords(query: str) -> str:
     return result
 
 
+##def colorize_keywords(text_widget):
+##    """
+##    Apply colour tags to SQL keywords inside a Tkinter Text widget.
+##
+##    Args:
+##        text_widget : tkinter.Text
+##            The text area to be colourised.
+##
+##    Returns:
+##        None
+##    """
+####    text_widget.tag_remove("sql_keyword", "1.0", "end")
+####    
+####    text_widget.tag_configure("sql_keyword", foreground="#4A637D")
+####    text_widget.tag_configure("sql_comment_line", foreground="#2F4F4F")
+####    text_widget.tag_configure("sql_comment_block", foreground="#2F4F4F")
+####
+####
+####    lines = text_widget.get("1.0", "end-1c").split("\n")
+####
+####    for i, line in enumerate(lines):
+####        for match in re.finditer(r'\b\w+\b', line):
+####            word = match.group(0)
+####            if word.upper() in SQL_KEYWORDS:
+####                start_col, end_col = match.span()
+####                start = f"{i + 1}.{start_col}"
+####                end = f"{i + 1}.{end_col}"
+####                text_widget.tag_add("sql_keyword", start, end)
+####    return None
+##
+##
+##    text_widget.tag_remove("sql_keyword", "1.0", "end")
+##    text_widget.tag_remove("sql_comment_line", "1.0", "end")
+##
+##    text_widget.tag_configure("sql_keyword", foreground="#3B5C8A")
+##    text_widget.tag_configure("sql_comment_line", foreground="#4F7F6F")
+##    text_widget.tag_configure("sql_comment_block", foreground="#4F7F6F")
+##
+##    lines = text_widget.get("1.0", "end-1c").split("\n")
+##
+##        # --- Block comments /* ... */ ---
+##    text = text_widget.get("1.0", "end-1c")
+##
+##    start_idx = 0
+##    while True:
+##        start = text.find("/*", start_idx)
+##        if start == -1:
+##            break
+##
+##        end = text.find("*/", start + 2)
+##        if end == -1:
+##            end = len(text) - 1
+##        else:
+##            end += 2
+##
+##        start_pos = text_widget.index(f"1.0+{start}c")
+##        end_pos = text_widget.index(f"1.0+{end}c")
+##
+##        text_widget.tag_add("sql_comment_block", start_pos, end_pos)
+##
+##        start_idx = end
+##
+##    for i, line in enumerate(lines):
+##        comment_start = line.find("--")
+##        if comment_start != -1:
+##            start = f"{i + 1}.{comment_start}"
+##            end = f"{i + 1}.end"
+##            text_widget.tag_add("sql_comment_line", start, end)
+##            scan_line = line[:comment_start]
+##        else:
+##            scan_line = line
+##
+##        for match in re.finditer(r"\b\w+\b", scan_line):
+##            word = match.group(0)
+##            if word.upper() in SQL_KEYWORDS:
+##                start_col, end_col = match.span()
+##                start = f"{i + 1}.{start_col}"
+##                end = f"{i + 1}.{end_col}"
+##                text_widget.tag_add("sql_keyword", start, end)
+##
+##    return None
+
 def colorize_keywords(text_widget):
     """
     Apply colour tags to SQL keywords inside a Tkinter Text widget.
@@ -134,19 +216,56 @@ def colorize_keywords(text_widget):
     Returns:
         None
     """
+    # Clear existing tags
     text_widget.tag_remove("sql_keyword", "1.0", "end")
-    text_widget.tag_configure("sql_keyword", foreground="#4A637D")
+    text_widget.tag_remove("sql_comment_line", "1.0", "end")
+    text_widget.tag_remove("sql_comment_block", "1.0", "end")
 
-    lines = text_widget.get("1.0", "end-1c").split("\n")
+    # Configure styles
+    text_widget.tag_configure("sql_keyword", foreground="#3B5C8A")
+    text_widget.tag_configure("sql_comment_line", foreground="#4F7F6F")
+    text_widget.tag_configure("sql_comment_block", foreground="#4F7F6F")
 
+    text = text_widget.get("1.0", "end-1c")
+
+    # --- Pass 1 : block comments /* ... */ (multi-line) ---
+    for m in re.finditer(r"/\*.*?\*/", text, flags=re.DOTALL):
+        start = text_widget.index(f"1.0+{m.start()}c")
+        end = text_widget.index(f"1.0+{m.end()}c")
+        text_widget.tag_add("sql_comment_block", start, end)
+
+    # --- Pass 2 : line comments -- ... (single line) ---
+    lines = text.split("\n")
     for i, line in enumerate(lines):
-        for match in re.finditer(r'\b\w+\b', line):
+        col = line.find("--")
+        if col != -1:
+            start = f"{i + 1}.{col}"
+            end = f"{i + 1}.end"
+            text_widget.tag_add("sql_comment_line", start, end)
+
+    # --- Pass 3 : keywords (only outside comments) ---
+    for i, line in enumerate(lines):
+        for match in re.finditer(r"\b\w+\b", line):
             word = match.group(0)
-            if word.upper() in SQL_KEYWORDS:
-                start_col, end_col = match.span()
-                start = f"{i + 1}.{start_col}"
-                end = f"{i + 1}.{end_col}"
-                text_widget.tag_add("sql_keyword", start, end)
+            if word.upper() not in SQL_KEYWORDS:
+                continue
+
+            start_col, end_col = match.span()
+            start = f"{i + 1}.{start_col}"
+            end = f"{i + 1}.{end_col}"
+
+            # Skip if inside any comment
+            if text_widget.tag_nextrange("sql_comment_line", start, end):
+                continue
+            if text_widget.tag_nextrange("sql_comment_block", start, end):
+                continue
+
+            text_widget.tag_add("sql_keyword", start, end)
+
+    # Ensure comments stay on top visually
+    text_widget.tag_raise("sql_comment_block")
+    text_widget.tag_raise("sql_comment_line")
+
     return None
 
 
@@ -154,23 +273,27 @@ def insert_linebreaks_before_keywords(sql_code: str) -> str:
     """
     Insert newlines before key SQL keywords (from LINEBREAK_KEYWORDS)
     in an idempotent way: repeated calls will not add redundant line breaks.
-
-    Args:
-        sql_code : str
-            SQL query string.
-
-    Returns:
-        str : Reformatted SQL string.
     """
     formatted = sql_code
-    for keyword in sorted(LINEBREAK_KEYWORDS, key=len, reverse=True):
-        pattern = rf"\b{re.escape(keyword)}\b"
-        formatted = re.sub(pattern, rf"\n{keyword}", formatted, flags=re.IGNORECASE)
 
-    # Remove redundant newlines and whitespace
+    for keyword in sorted(LINEBREAK_KEYWORDS, key=len, reverse=True):
+        formatted = re.sub(
+            rf"(?<!\n)\b{re.escape(keyword)}\b",
+            rf"\n{keyword}",
+            formatted,
+            flags=re.IGNORECASE
+        )
+
+    # Remove trailing spaces before newline (safe)
     formatted = re.sub(r"[ \t]+\n", "\n", formatted)
-    formatted = re.sub(r'\n\s*', '\n', formatted)
-    return formatted.strip()
+
+    # Keep up to 2 empty lines max:
+    # 3+ empty lines -> exactly 2 empty lines (i.e. 3 consecutive '\n')
+    formatted = re.sub(r"\n{4,}", "\n\n\n", formatted)
+
+    return formatted.rstrip()
+
+
 
 
 def on_closing(window, pre_close=None):
