@@ -679,3 +679,114 @@ et se redimensionnent lorsque la taille de police est modifiée par l'utilisateu
     (ex. : pas de ligne vide forcée entre `INSERT INTO ...` et `VALUES` lorsque `VALUES` est déjà sur une nouvelle ligne).
 
   L’objectif est d’obtenir une mise en forme **stable, lisible et respectueuse de l’intention de l’utilisateur**, même après des exécutions répétées du Pretty Print.
+
+
+
+- [ ] 2026-01-18 — Pretty Print / Coloration syntaxique : ignorer les mots-cles SQL dans les commentaires.
+
+  **Contexte**
+  - Dans le SQL shell, le pretty printer et la coloration syntaxique traitent actuellement
+    les mots-cles SQL meme lorsqu ils apparaissent dans des commentaires (lignes commencant par "--").
+  - Probleme observe avec le script de setup "Music Academy".
+
+  **Symptomes**
+  - Le mot-cle "CREATE" dans un commentaire declenche :
+    - des retours a la ligne automatiques,
+    - une coloration bleue des mots-cles,
+    - et parfois une interpretation partielle par SQLite.
+  - Le script SQL peut alors etre corrompu et echouer a l execution.
+  - Fait interessant : les mots-cles "DROP" et "INSERT" dans les commentaires ne declenchent PAS le probleme,
+    ce qui suggere que seule une sous-liste de mots-cles (probablement ceux utilises pour les retours a la ligne)
+    est concernee.
+
+  **Hypothese**
+  - La logique de pretty print analyse probablement tout le texte (y compris les commentaires) et applique :
+    - detection des mots-cles,
+    - regles de mise en forme,
+    - coloration,
+    sans exclure les zones commentees.
+  - "CREATE" semble appartenir a une liste speciale de mots-cles declenchant le formatage,
+    contrairement a "DROP" et "INSERT".
+
+  **Correctif attendu**
+  - Avant toute application du pretty print ou de la coloration syntaxique :
+    - detecter les zones de commentaire ("-- ...", et eventuellement "/* ... */"),
+    - les exclure totalement de tout traitement de mots-cles et de mise en forme,
+    - preserver leur contenu tel quel.
+  - Alternative : masquer temporairement les commentaires pendant le formatage, puis les restaurer.
+
+  **Impact**
+  - Ce probleme n est pas seulement cosmetique : il peut modifier le SQL executable et provoquer
+    des erreurs d execution, ce qui est problematique dans un contexte pedagogique.
+
+  **Observation complementaire**
+  - Apres suppression manuelle des retours a la ligne indus, les commentaires retrouvent
+    une coloration verte correcte et SQLite execute normalement le script.
+  - Cela confirme que le probleme est bien cause par des retours a la ligne inseres
+    a l interieur des lignes commentees.
+
+
+- [ ] 2026-01-18 — Pretty Print : les fonctions SQL (count, sum, avg, min, max) ne sont pas colorees.
+
+  **Observation**
+  - Les fonctions SQL comme count, sum, avg, min et max ne sont actuellement pas detectees
+    ni colorees par le moteur de coloration syntaxique.
+  - Seuls les mots-cles structurels (select, from, where, join, etc.) sont colores.
+
+  **Impact**
+  - Ce n est pas bloquant fonctionnellement.
+  - La lisibilite reste correcte, mais une coloration des fonctions pourrait ameliorer
+    la lecture et la pedagogie.
+
+  **Piste d evolution**
+  - Envisager d ajouter les fonctions SQL courantes dans une liste dediee (ex: SQL_FUNCTIONS)
+    et de leur appliquer une coloration differenciee, sans impacter le pretty print existant.
+
+
+
+## 2026-01-19 — Refactorisation Pretty Print / Sécurisation des commentaires
+
+### ✅ Corrigé
+- Implémentation de `split_sql_segments()` pour découper proprement un texte SQL en :
+  - ("code", ...)
+  - ("comment", ...)
+  en détectant :
+  - les commentaires de ligne `-- ...`
+  - les commentaires de bloc `/* ... */`
+  Hypothèse documentée : `/*` et `*/` n’apparaissent jamais en dehors des commentaires.
+
+- Refactorisation de `highlight_keywords()` :
+  - mise en majuscules appliquée uniquement aux segments "code",
+  - préservation stricte des commentaires.
+  Cela évite également toute corruption des commentaires lors des opérations Save / Save As.
+
+- Refactorisation de `insert_linebreaks_before_keywords()` :
+  - insertion de retours à la ligne uniquement dans les segments "code",
+  - aucune modification à l’intérieur des commentaires.
+
+- Correction du bug d’affichage des JOIN :
+  - suppression de la coupure incorrecte :
+    - `LEFT\nJOIN`, `INNER\nJOIN`, etc.
+  - `JOIN` n’est mis à la ligne que lorsqu’il apparaît seul.
+
+- Validation par une batterie complète de tests :
+  - sécurité des commentaires de ligne,
+  - sécurité des commentaires de bloc,
+  - commentaires inline,
+  - comportement du pretty print,
+  - formatage des JOIN,
+  - idempotence (stabilité après la deuxième exécution),
+  - coloration syntaxique correcte.
+
+###  Connu (faible priorité)
+- Cosmétique : lorsqu’un commentaire de bloc n’est pas fermé (`/*` sans `*/` en fin de fichier),
+  une ligne vide supplémentaire peut apparaître lors de la deuxième exécution du Pretty Print.
+  Le comportement est sûr et stable ensuite.
+  → Pas de correction prévue à court terme.
+
+###  Prochaines priorités
+- Implémenter un vrai comportement Save / Save As :
+  - Ctrl+S : écrasement du fichier courant s’il existe,
+  - Ctrl+Shift+S : Save As,
+  - gestion cohérente du fichier courant (`current_sql_file`).
+- Rédaction du mode d’emploi / documentation utilisateur.

@@ -568,3 +568,112 @@ Fix Pretty Print whitespace rules so that:
 The objective is to keep the formatting stable and user-friendly, while remaining strictly idempotent after repeated executions.
 
 
+- [ ] 2026-01-18 — Pretty Print / Syntax highlighting must ignore SQL keywords inside comments.
+
+  **Context**
+  - In the SQL shell, the pretty printer and syntax highlighter currently process SQL keywords
+    even when they appear inside comments (lines starting with "--").
+  - Example observed with the Music Academy setup script.
+
+  **Symptoms**
+  - The keyword "CREATE" inside a comment triggers:
+    - automatic line breaks,
+    - blue keyword colouring,
+    - and sometimes partial interpretation by SQLite.
+  - The SQL script may then become corrupted and fail at execution.
+  - Interestingly, the keywords "DROP" and "INSERT" inside comments do NOT trigger the issue,
+    which suggests that only a subset of keywords (probably those used for automatic line breaks)
+    is affected.
+
+  **Hypothesis**
+  - The pretty print logic likely scans the full text (including comments) and applies:
+    - keyword detection,
+    - line breaking rules,
+    - colouring rules,
+    without excluding commented regions.
+  - "CREATE" appears to belong to a special list of keywords that trigger line formatting,
+    whereas "DROP" and "INSERT" do not.
+
+  **Expected fix**
+  - Before applying any pretty print or syntax highlighting:
+    - detect comment regions ("-- ...", and possibly "/* ... */"),
+    - exclude them entirely from all keyword processing and formatting,
+    - preserve their content verbatim.
+  - Alternatively, temporarily mask comments during formatting and restore them afterwards.
+
+  **Impact**
+  - This is not only a cosmetic issue: it can modify executable SQL text and cause runtime errors,
+    which is problematic in a pedagogical context.
+
+  **Additional observation**
+  - After manually removing the unwanted line breaks, comments are correctly restored
+    (green colouring) and SQLite executes the script normally.
+  - This confirms that the issue is caused by line breaks inserted inside commented lines.
+
+- [ ] 2026-01-18 — Pretty Print: SQL functions (count, sum, avg, min, max) are not colourised.
+
+  **Observation**
+  - SQL functions such as count, sum, avg, min and max are currently not detected
+    nor colourised by the syntax highlighting engine.
+  - Only structural SQL keywords (select, from, where, join, etc.) are colourised.
+
+  **Impact**
+  - This is not functionally blocking.
+  - Readability remains acceptable, but colouring SQL functions could improve
+    readability and pedagogical clarity.
+
+  **Possible evolution**
+  - Consider adding common SQL functions to a dedicated list (e.g. SQL_FUNCTIONS)
+    and applying a specific colour style, without impacting the existing pretty print logic.
+
+
+## 2026-01-19 — Pretty Print / Comment safety refactor
+
+### ✅ Fixed
+- Implemented `split_sql_segments()` to reliably split SQL text into:
+  - ("code", ...)
+  - ("comment", ...)
+  using:
+  - line comments `-- ...`
+  - block comments `/* ... */`
+  Assumption documented: `/*` and `*/` do not appear outside comments.
+
+- Refactored `highlight_keywords()` to:
+  - apply uppercasing only on "code" segments,
+  - leave all comments strictly unchanged.
+  This also prevents comment corruption during Save / Save As.
+
+- Refactored `insert_linebreaks_before_keywords()` to:
+  - apply line breaks only on "code" segments,
+  - never insert newlines inside comments.
+
+- Fixed JOIN formatting bug:
+  - Prevented splitting of compound keywords such as:
+    - `LEFT JOIN`, `INNER JOIN`, `RIGHT JOIN`, etc.
+  - `JOIN` is only broken into a new line when it appears alone.
+
+- Validated with a full regression test battery:
+  - line comments safety,
+  - block comments safety,
+  - inline comments,
+  - pretty print behaviour,
+  - JOIN formatting,
+  - idempotence (stable after second pass),
+  - colourisation correctness.
+
+###  Known (low priority)
+- Cosmetic: when a block comment is not closed (`/*` without `*/` at EOF),
+  a single extra blank line may appear on the second Pretty Print pass.
+  Behaviour is safe and stable afterwards.
+  → Not planned for near-term fixing.
+
+###  Next priorities
+- Implement real Save / Save As behaviour:
+  - Ctrl+S overwrite when file already exists,
+  - Ctrl+Shift+S for Save As,
+  - consistent file tracking (`current_sql_file`).
+- User manual / documentation.
+
+
+
+

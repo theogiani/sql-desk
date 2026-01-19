@@ -97,30 +97,65 @@ def save_recent_files(file_path, source_list):
     return None
 
 
+##def highlight_keywords(query: str) -> str:
+##    """
+##    Convert recognised SQL keywords in a string to uppercase.
+##
+##    Args:
+##        query : str
+##            SQL code to format.
+##
+##    Returns:
+##        str : Query with SQL keywords uppercased.
+##    """
+##    matches = re.finditer(r'\b\w+\b', query)
+##    result = ''
+##    last_end = 0
+##
+##    for match in matches:
+##        start, end = match.span()
+##        word = match.group(0)
+##        result += query[last_end:start]
+##        result += word.upper() if word.upper() in SQL_KEYWORDS else word
+##        last_end = end
+##
+##    result += query[last_end:]
+##    return result
+
+
 def highlight_keywords(query: str) -> str:
     """
-    Convert recognised SQL keywords in a string to uppercase.
+    Convert recognised SQL keywords in a string to uppercase,
+    but do not touch SQL comments.
 
-    Args:
-        query : str
-            SQL code to format.
-
-    Returns:
-        str : Query with SQL keywords uppercased.
+    Comment rules:
+    - Line comments: -- ... end of line
+    - Block comments: /* ... */
     """
-    matches = re.finditer(r'\b\w+\b', query)
-    result = ''
-    last_end = 0
+    segments = split_sql_segments(query)
 
-    for match in matches:
-        start, end = match.span()
-        word = match.group(0)
-        result += query[last_end:start]
-        result += word.upper() if word.upper() in SQL_KEYWORDS else word
-        last_end = end
+    out = ""
+    for kind, chunk in segments:
+        if kind == "comment":
+            out += chunk
+            continue
 
-    result += query[last_end:]
-    return result
+        matches = re.finditer(r'\b\w+\b', chunk)
+        result = ''
+        last_end = 0
+
+        for match in matches:
+            start, end = match.span()
+            word = match.group(0)
+            result += chunk[last_end:start]
+            result += word.upper() if word.upper() in SQL_KEYWORDS else word
+            last_end = end
+
+        result += chunk[last_end:]
+        out += result
+
+    return out
+
 
 
 ##def colorize_keywords(text_widget):
@@ -269,31 +304,74 @@ def colorize_keywords(text_widget):
     return None
 
 
+##def insert_linebreaks_before_keywords(sql_code: str) -> str:
+##    """
+##    Insert newlines before key SQL keywords (from LINEBREAK_KEYWORDS)
+##    in an idempotent way: repeated calls will not add redundant line breaks.
+##    """
+##    formatted = sql_code
+##
+##    for keyword in sorted(LINEBREAK_KEYWORDS, key=len, reverse=True):
+##        formatted = re.sub(
+##            rf"(?<!\n)\b{re.escape(keyword)}\b",
+##            rf"\n{keyword}",
+##            formatted,
+##            flags=re.IGNORECASE
+##        )
+##
+##    # Remove trailing spaces before newline (safe)
+##    formatted = re.sub(r"[ \t]+\n", "\n", formatted)
+##
+##    # Keep up to 2 empty lines max:
+##    # 3+ empty lines -> exactly 2 empty lines (i.e. 3 consecutive '\n')
+##    formatted = re.sub(r"\n{4,}", "\n\n\n", formatted)
+##
+##    return formatted.rstrip()
+
+
 def insert_linebreaks_before_keywords(sql_code: str) -> str:
     """
     Insert newlines before key SQL keywords (from LINEBREAK_KEYWORDS)
-    in an idempotent way: repeated calls will not add redundant line breaks.
+    in an idempotent way, but do not touch SQL comments.
+
+    Comment rules:
+    - Line comments: -- ... end of line
+    - Block comments: /* ... */
     """
-    formatted = sql_code
+    segments = split_sql_segments(sql_code)
 
-    for keyword in sorted(LINEBREAK_KEYWORDS, key=len, reverse=True):
-        formatted = re.sub(
-            rf"(?<!\n)\b{re.escape(keyword)}\b",
-            rf"\n{keyword}",
-            formatted,
-            flags=re.IGNORECASE
-        )
+    out = ""
+    for kind, chunk in segments:
+        if kind == "comment":
+            out += chunk
+            continue
 
-    # Remove trailing spaces before newline (safe)
-    formatted = re.sub(r"[ \t]+\n", "\n", formatted)
+        formatted = chunk
 
-    # Keep up to 2 empty lines max:
-    # 3+ empty lines -> exactly 2 empty lines (i.e. 3 consecutive '\n')
-    formatted = re.sub(r"\n{4,}", "\n\n\n", formatted)
+        for keyword in sorted(LINEBREAK_KEYWORDS, key=len, reverse=True):
+            if keyword.upper() == "JOIN":
+                # Do not break "LEFT JOIN", "INNER JOIN", etc.
+                formatted = re.sub(
+                    r"(?<!\n)\b(?<!LEFT\s)(?<!RIGHT\s)(?<!INNER\s)"
+                    r"(?<!OUTER\s)(?<!CROSS\s)(?<!NATURAL\s)JOIN\b",
+                    r"\nJOIN",
+                    formatted,
+                    flags=re.IGNORECASE
+                )
+            else:
+                formatted = re.sub(
+                    rf"(?<!\n)\b{re.escape(keyword)}\b",
+                    rf"\n{keyword}",
+                    formatted,
+                    flags=re.IGNORECASE
+                )
 
-    return formatted.rstrip()
+        formatted = re.sub(r"[ \t]+\n", "\n", formatted)
+        formatted = re.sub(r"\n{4,}", "\n\n\n", formatted)
 
+        out += formatted
 
+    return out.rstrip()
 
 
 def on_closing(window, pre_close=None):
@@ -449,3 +527,61 @@ def clear_output(output_box):
     output_box.delete("1.0", END)
     output_box.config(state='disabled')
     return None
+
+
+def split_sql_segments(text):
+    """
+    Split SQL text into segments:
+    ("code", "...") or ("comment", "...").
+
+    Rules:
+    - Line comments start with -- and go until end of line.
+    - Block comments start with /* and end with */ (may span multiple lines).
+    - Assumption: /* and */ do not appear outside comments.
+    """
+    segments = []
+    buffer = ""
+    i = 0
+    n = len(text)
+    in_block_comment = False
+
+    while i < n:
+        # Start block comment
+        if not in_block_comment and text[i:i+2] == "/*":
+            if buffer:
+                segments.append(("code", buffer))
+                buffer = ""
+            in_block_comment = True
+            buffer += "/*"
+            i += 2
+            continue
+
+        # End block comment
+        if in_block_comment and text[i:i+2] == "*/":
+            buffer += "*/"
+            segments.append(("comment", buffer))
+            buffer = ""
+            in_block_comment = False
+            i += 2
+            continue
+
+        # Line comment (only if not in block comment)
+        if not in_block_comment and text[i:i+2] == "--":
+            if buffer:
+                segments.append(("code", buffer))
+                buffer = ""
+            start = i
+            while i < n and text[i] != "\n":
+                i += 1
+            segments.append(("comment", text[start:i]))
+            continue
+
+        buffer += text[i]
+        i += 1
+
+    if buffer:
+        kind = "comment" if in_block_comment else "code"
+        segments.append((kind, buffer))
+
+    return segments
+
