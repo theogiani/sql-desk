@@ -790,3 +790,98 @@ et se redimensionnent lorsque la taille de police est modifiée par l'utilisateu
   - Ctrl+Shift+S : Save As,
   - gestion cohérente du fichier courant (`current_sql_file`).
 - Rédaction du mode d’emploi / documentation utilisateur.
+
+
+- [ ] **2026-01-20 — Implémenter un vrai comportement Save / Save As pour les fichiers SQL**
+
+  - Clarifier que l’action actuelle **"Save SQL..."** correspond en réalité à un **Save As**.
+  - Mettre à jour le menu **SQL File** pour proposer :
+    - **Save**
+    - **Save As...**
+  - Ajouter une variable globale `current_sql_file` dans `global_vars.py`.
+  - Lors de l’ouverture d’un fichier SQL, mettre à jour `current_sql_file` en conséquence.
+  - Implémenter une fonction unifiée `save_sql_code(...)` :
+    - Si `current_sql_file` existe et que le mode n’est pas forcé → écrasement du fichier.
+    - Sinon → ouverture de la boîte de dialogue **Save As** et mise à jour de `current_sql_file`.
+  - Raccourcis clavier :
+    - **Ctrl+S** → Save
+    - **Ctrl+Shift+S** → Save As
+  - Vérifier que le menu des fichiers SQL récents continue à se mettre à jour correctement.
+
+
+
+## 2026-01-20 — Save / Save As (fichiers SQL) + menu + raccourcis
+
+### Fait aujourd’hui (implémenté + testé)
+- [x] Ajout d’un état de session pour le fichier SQL courant :
+  - Ajout de `current_sql_file` dans `global_vars.py` (initialisé à `None`).
+- [x] **Open SQL...** initialise correctement le fichier courant :
+  - Dans `open_sql_code(...)`, affectation de `global_vars.current_sql_file = filepath` après sélection valide.
+- [x] Évolution de `save_sql_code(...)` vers un vrai **Save + Save As** :
+  - Signature étendue : `save_sql_code(sql_textbox, menu=None, force_save_as=False)`.
+  - Comportement :
+    - Si `current_sql_file` existe et que `force_save_as` est False → écrasement du fichier courant (sans dialogue).
+    - Sinon → ouverture de la boîte de dialogue **Save As** et mise à jour de `current_sql_file`.
+  - Après une écriture réussie, mise à jour de `global_vars.current_sql_file = filepath`.
+- [x] Mise à jour du menu **SQL File** :
+  - Remplacement de l’ancien **"Save SQL..."** par :
+    - **Save**
+    - **Save As...**
+- [x] Raccourcis clavier opérationnels :
+  - **Ctrl+S** → Save
+  - **Ctrl+Shift+S** → Save As
+  - Compatibilité Redo conservée :
+    - **Ctrl+Y** et **Ctrl+Shift+Z** → Redo
+- [x] Affichage des raccourcis dans le menu (accelerators) :
+  - **Save** affiche `Ctrl+S`
+  - **Save As...** affiche `Ctrl+Shift+S`
+- [x] Correction du rafraîchissement du menu :
+  - `refresh_sql_file_menu(...)` reconstruit désormais correctement :
+    - Open SQL...
+    - Save (Ctrl+S)
+    - Save As... (Ctrl+Shift+S)
+    - fichiers récents
+- [x] Tests manuels validés :
+  - Save As depuis un buffer vierge.
+  - Save overwrite sans boîte de dialogue.
+  - Save As forcé avec changement de fichier courant.
+  - Redémarrage → Open SQL → Save overwrite.
+
+---
+
+## Pistes de développement futures (moyen / long terme)
+
+### (Long terme) Rationalisation de la construction du menu SQL File
+- [ ] **(Plus tard) Centraliser la construction du menu SQL File**
+  - Situation actuelle : le menu est construit dans `sql_desk.py` **et** reconstruit dans `refresh_sql_file_menu(...)`.
+  - Objectif : éviter les duplications et les incohérences (comme le retour involontaire de "Save SQL...").
+  - Piste :
+    - Créer l’objet `Menu` dans `sql_desk.py` (menu vide),
+    - Appeler une seule fois `refresh_sql_file_menu(menu, textbox)` au démarrage,
+    - Supprimer la construction initiale redondante dans `sql_desk.py`.
+
+### (Moyen terme) Indication du fichier SQL courant (sans surcharge visuelle)
+- [ ] Ajouter un indicateur léger du fichier SQL courant, sur le modèle de l’affichage du chemin de la base :
+  - Options possibles :
+    - Ajouter le nom du fichier dans le titre de la fenêtre :  
+      `SQL Desk — <nom_fichier.sql>`
+    - Ajouter une petite zone de statut près de l’éditeur (nom seul, chemin complet éventuellement en tooltip).
+  - Conserver une interface sobre et lisible pour les élèves.
+
+### (Moyen terme) Colorisation des messages d’erreur dans la zone Output
+- [ ] Afficher les messages d’erreur SQL en rouge dans la zone Output.
+  - La majorité des erreurs proviennent probablement des exceptions SQLite.
+  - Piste technique :
+    - Intercepter explicitement les exceptions (`sqlite3.Error`, etc.).
+    - Centraliser l’affichage via une fonction dédiée (ex. `append_output(text, tag="error")`).
+    - Configurer les tags du widget `Text` (tag `error` en rouge).
+  - Harmoniser les chemins d’erreur si certains messages sont encore imprimés ou retournés sous forme brute.
+
+### (Long terme) Sauvegarde / export de la base de données
+- [ ] Ajouter **Database → Backup / Export database...**
+  - Comportement attendu : copie explicite du fichier `.db` vers un emplacement choisi par l’utilisateur.
+  - Bien distinguer cette action du Save/Save As des fichiers SQL (éviter toute confusion conceptuelle).
+  - Raccourci clavier : optionnel / à définir (probablement non nécessaire).
+
+
+

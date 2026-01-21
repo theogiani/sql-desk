@@ -97,7 +97,18 @@ button_quit.grid(row=0, column=2, padx=5, pady=10, sticky="n")
 sql_file_button = Menubutton(frame_buttons, text="SQL File", bg=global_vars.bg_button, fg=global_vars.text_colour, relief=RAISED)
 sql_file_menu = Menu(sql_file_button, tearoff=0)
 sql_file_menu.add_command(label="Open SQL...", command=lambda: open_sql_code(sql_textbox, menu=sql_file_menu))
-sql_file_menu.add_command(label="Save SQL...", command=lambda: save_sql_code(sql_textbox, sql_file_menu))
+sql_file_menu.add_command(
+    label="Save",
+    accelerator="Ctrl+S",
+    command=lambda: save_sql_code(sql_textbox, sql_file_menu, force_save_as=False)
+)
+
+sql_file_menu.add_command(
+    label="Save As...",
+    accelerator="Ctrl+Shift+S",
+    command=lambda: save_sql_code(sql_textbox, sql_file_menu, force_save_as=True)
+)
+
 sql_file_menu.add_separator()
 for i, filename in enumerate(global_vars.recent_sql_files, start=1):
     sql_file_menu.add_command(
@@ -149,7 +160,9 @@ sql_textbox.config(undo=True, maxundo=2000, autoseparators=True)
 window.bind("<Control-z>", lambda e: (sql_textbox.event_generate("<<Undo>>"), "break")[1])
 window.bind("<Control-y>", lambda e: (sql_textbox.event_generate("<<Redo>>"), "break")[1])
 window.bind("<Control-Shift-Z>", lambda e: (sql_textbox.event_generate("<<Redo>>"), "break")[1])
-window.bind("<Control-s>", lambda e: (save_sql_code(sql_textbox, sql_file_menu), "break")[1])
+window.bind("<Control-s>", lambda e: (save_sql_code(sql_textbox, sql_file_menu, force_save_as=False), "break")[1])
+window.bind("<Control-Shift-S>", lambda e: (save_sql_code(sql_textbox, sql_file_menu, force_save_as=True), "break")[1])
+
 
 
 # Refresh the “recent SQL files” menu now that the widget exists.

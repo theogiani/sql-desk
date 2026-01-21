@@ -675,5 +675,95 @@ The objective is to keep the formatting stable and user-friendly, while remainin
 - User manual / documentation.
 
 
+- [ ] **2026-01-20 — Implement real Save / Save As behaviour for SQL files**
+
+  - Clarify that the current **"Save SQL..."** action is effectively **Save As**.
+  - Update the **SQL File** menu to expose:
+    - **Save**
+    - **Save As...**
+  - Add global variable `current_sql_file` in `global_vars.py`.
+  - When opening a SQL file, update `current_sql_file` accordingly.
+  - Implement unified function `save_sql_code(...)`:
+    - If `current_sql_file` exists and not forced → overwrite.
+    - Otherwise → open Save As dialog and update `current_sql_file`.
+  - Keyboard shortcuts:
+    - **Ctrl+S** → Save
+    - **Ctrl+Shift+S** → Save As
+  - Ensure the recent SQL files menu continues to refresh correctly.
+
+
+## 2026-01-20 — Save / Save As (SQL files) + menu + shortcuts
+
+### Done today (implemented + tested)
+- [x] Add session state for the current SQL file:
+  - Added `current_sql_file` in `global_vars.py` (initially `None`).
+- [x] Ensure **Open SQL...** sets the current SQL file:
+  - In `open_sql_code(...)`, set `global_vars.current_sql_file = filepath` after a valid file is selected.
+- [x] Upgrade `save_sql_code(...)` from "Save As only" to **real Save + Save As**:
+  - Extended signature: `save_sql_code(sql_textbox, menu=None, force_save_as=False)`.
+  - Behaviour:
+    - If `current_sql_file` exists and `force_save_as` is False → overwrite current file (no dialog).
+    - Otherwise → open Save As dialog and update `current_sql_file`.
+  - After a successful write, set `global_vars.current_sql_file = filepath`.
+- [x] Update SQL File menu to expose **Save** and **Save As...**:
+  - Replace legacy "Save SQL..." with:
+    - "Save"
+    - "Save As..."
+- [x] Keyboard shortcuts (working):
+  - Ctrl+S → Save
+  - Ctrl+Shift+S → Save As
+  - Keep Redo compatibility:
+    - Ctrl+Y and Ctrl+Shift+Z → Redo
+- [x] Show shortcuts in the menu (accelerators):
+  - "Save" shows `Ctrl+S`
+  - "Save As..." shows `Ctrl+Shift+S`
+- [x] Fix menu refresh overwriting the menu:
+  - Updated `refresh_sql_file_menu(...)` so it rebuilds the menu with:
+    - Open SQL...
+    - Save (Ctrl+S)
+    - Save As... (Ctrl+Shift+S)
+    - Recents
+- [x] Manual tests passed:
+  - Save As from a fresh buffer creates file and updates recents.
+  - Save overwrites the current file without a dialog.
+  - Save As forces a dialog and switches the current file.
+  - Cold start → Open SQL → Save overwrites without a dialog.
+
+---
+
+## Future development ideas (later / long term)
+
+### (Long term) Rationalise SQL File menu construction
+- [ ] **(Later) Centralise SQL File menu build logic**
+  - Current situation: menu is built in `sql_desk.py` *and* rebuilt by `refresh_sql_file_menu(...)`.
+  - Goal: avoid duplication and avoid future mismatches (like the "Save SQL..." reappearing).
+  - Suggested direction:
+    - Create the `Menu` object in `sql_desk.py` (empty),
+    - Call `refresh_sql_file_menu(menu, textbox)` once at startup,
+    - Remove duplicated initial `add_command(...)` calls from `sql_desk.py`.
+
+### (Medium term) Show current SQL file (without clutter)
+- [ ] Add a lightweight indicator of the current SQL file, similar to the DB path display:
+  - Options (choose one):
+    - Window title suffix: `SQL Desk — <filename.sql>`
+    - A small status bar / label near the SQL editor (filename only, full path on hover / tooltip).
+  - Keep UI minimal for pupils (no noisy full paths).
+
+### (Medium term) Colourise SQL errors in Output
+- [ ] Display SQL execution errors in red in the Output widget
+  - Many errors come from SQLite exceptions / error messages.
+  - Implementation idea:
+    - Ensure the SQL execution function(s) catch database exceptions (e.g., `sqlite3.Error`),
+    - Route errors through a single output function, e.g. `append_output(text, tag="error")`,
+    - Configure the Output `Text` widget tags (e.g., `error` in red).
+  - Note: if some errors are currently printed or returned as strings, normalise them so they go through the same path.
+
+### (Long term) Database backup / export
+- [ ] Add **Database → Backup/Export database...**
+  - Explicit behaviour: copy the current `.db` file to a user-chosen location (file copy).
+  - Keep it clearly separate from SQL editor Save/Save As (avoid conceptual confusion).
+  - Shortcut: optional / TBD (likely no shortcut needed).
+
+
 
 

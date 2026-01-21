@@ -21,6 +21,9 @@ accent_colour = '#5c6bc0'
 current_database = ''
 current_connection = None
 
+# Current SQL file path
+current_sql_file = None
+
 
 # Recent database and SQL file tracking
 recent_sql_files = []

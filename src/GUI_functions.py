@@ -217,20 +217,33 @@ def get_tables(output_textbox):
     return None
 
 
-def save_sql_code(sql_textbox, menu=None):
-    """Save the current SQL editor content (with highlighted keywords) to a file."""
+def save_sql_code(sql_textbox, menu=None, force_save_as=False):
+    """
+    Save the SQL editor content to disk.
+
+    If a current SQL file exists and force_save_as is False, overwrite it.
+    Otherwise, open a Save As dialog and update current_sql_file.
+    """
+
     raw_sql = sql_textbox.get("1.0", "end-1c")
     formatted_sql = highlight_keywords(raw_sql)
 
-    filepath = filedialog.asksaveasfilename(
-        defaultextension=".sql",
-        filetypes=[("SQL Files", "*.sql"), ("All Files", "*.*")]
-    )
+    if global_vars.current_sql_file and not force_save_as:
+        filepath = global_vars.current_sql_file
+    else:
+        filepath = filedialog.asksaveasfilename(
+            defaultextension=".sql",
+            filetypes=[("SQL Files", "*.sql"), ("All Files", "*.*")]
+        )
+        if filepath:
+            global_vars.current_sql_file = filepath
 
     if filepath:
         try:
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(formatted_sql)
+
+            global_vars.current_sql_file = filepath
 
             update_recent_sql_files(filepath)
             if menu:
@@ -238,7 +251,9 @@ def save_sql_code(sql_textbox, menu=None):
 
         except Exception as e:
             print(f"Error saving file: {e}")
+
     return None
+
 
 
 def open_sql_code(sql_textbox, filepath=None, menu=None):
@@ -250,6 +265,8 @@ def open_sql_code(sql_textbox, filepath=None, menu=None):
         )
     if not filepath:
         return None
+
+    global_vars.current_sql_file = filepath
 
     try:
         with open(filepath, "r", encoding="utf-8") as f:
@@ -284,7 +301,18 @@ def refresh_sql_file_menu(menu, textbox):
     """Rebuild the SQL File menu with updated recent entries."""
     menu.delete(0, 'end')
     menu.add_command(label="Open SQL...", command=lambda: open_sql_code(textbox, menu=menu))
-    menu.add_command(label="Save SQL...", command=lambda: save_sql_code(textbox, menu=menu))
+    menu.add_command(
+    label="Save",
+    accelerator="Ctrl+S",
+    command=lambda: save_sql_code(sql_textbox, sql_file_menu, force_save_as=False)
+    )
+
+    menu.add_command(
+        label="Save As...",
+        accelerator="Ctrl+Shift+S",
+        command=lambda: save_sql_code(sql_textbox, sql_file_menu, force_save_as=True)
+    )
+
     menu.add_separator()
 
     for i, filepath in enumerate(global_vars.recent_sql_files, 1):
